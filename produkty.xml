@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<produkty>
+  <produkt>
+    <id>1</id>
+    <nazwa>Laptop Dell</nazwa>
+    <cena>3499.99</cena>
+    <kategoria>Elektronika</kategoria>
+    <ilosc>15</ilosc>
+  </produkt>
+  <produkt>
+    <id>2</id>
+    <nazwa>Mysz Logitech</nazwa>
+    <cena>89.99</cena>
+    <kategoria>Akcesoria</kategoria>
+    <ilosc>50</ilosc>
+  </produkt>
+  <produkt>
+    <id>3</id>
+    <nazwa>Klawiatura mechaniczna</nazwa>
+    <cena>299.99</cena>
+    <kategoria>Akcesoria</kategoria>
+    <ilosc>30</ilosc>
+  </produkt>
+  <produkt>
+    <id>4</id>
+    <nazwa>Monitor Samsung</nazwa>
+    <cena>1299.99</cena>
+    <kategoria>Elektronika</kategoria>
+    <ilosc>20</ilosc>
+  </produkt>
+  <produkt>
+    <id>5</id>
+    <nazwa>Słuchawki Sony</nazwa>
+    <cena>449.99</cena>
+    <kategoria>Audio</kategoria>
+    <ilosc>25</ilosc>
+  </produkt>
+</produkty>

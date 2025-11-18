@@ -1,0 +1,37 @@
+[
+  {
+    "id": 1,
+    "nazwa": "Laptop Dell",
+    "cena": 3499.99,
+    "kategoria": "Elektronika",
+    "ilosc": 15
+  },
+  {
+    "id": 2,
+    "nazwa": "Mysz Logitech",
+    "cena": 89.99,
+    "kategoria": "Akcesoria",
+    "ilosc": 50
+  },
+  {
+    "id": 3,
+    "nazwa": "Klawiatura mechaniczna",
+    "cena": 299.99,
+    "kategoria": "Akcesoria",
+    "ilosc": 30
+  },
+  {
+    "id": 4,
+    "nazwa": "Monitor Samsung",
+    "cena": 1299.99,
+    "kategoria": "Elektronika",
+    "ilosc": 20
+  },
+  {
+    "id": 5,
+    "nazwa": "Słuchawki Sony",
+    "cena": 449.99,
+    "kategoria": "Audio",
+    "ilosc": 25
+  }
+]

@@ -82,10 +82,66 @@ class KMeansIterative:
 
 #----------------------------Początek streamlita--------------------------------
 
+st.header("K-means")
+st.markdown("""
+Przed omówieniem samego algorytmu należy wspomnieć o przygotowywaniu danych, czyli standaryzacji danych i technice PCA  
+         
+**Standaryzacja (StandardScaler)**    
+Standaryzacja to proces przekształcania danych tak, aby każda cecha miała średnią równą 0 i odchylenie standardowe równe 1.  
+  
+**Dlaczego jest kluczowa dla K-means?**
+- K-means używa odległości euklidesowej do przypisywania punktów do klastrów
+- Cechy o większych wartościach (np. pensja: 20000-80000) dominowałyby cechy o mniejszych (np. wiek: 20-60)
+- Bez standaryzacji algorytm skupiałby się głównie na cechach o największym zakresie wartości
+- Po standaryzacji wszystkie cechy mają równy wpływ na wynik klasteryzacji  
+
+**PCA (Principal Component Analysis)**
+PCA to technika redukcji wymiarowości, która przekształca dane do nowego układu współrzędnych, gdzie nowe osie (składowe główne) wyjaśniają maksymalną wariancję danych.
+PCA NIE jest wymagane dla K-means. K-means działa bezpośrednio na oryginalnych danych. Nie ma potrzeby na PCA dla samego algorytmu klasteryzacji.
+
+**Kiedy jest używane?**
+- Gdy masz więcej niż 3 cechy i chcesz wizualizować dane w 2D lub 3D
+- Gdy masz bardzo wiele cech (np. 50+) i chcesz przyspieszyć obliczenia
+- Gdy cechy są skorelowane i można je zredukować bez utraty wielu informacji
+            
+*PCA zawsze wiąże się z ryzykiem utraty informmacji*          
+            """)
+st.subheader("Algorytm K-means")
+st.markdown("""
+**Co to jest K-means?**
+            
+K-means to iteracyjny algorytm klasteryzacji należący do kategorii uczenia nienadzorowanego. Jego celem jest partycjonowanie zbioru danych na K rozłącznych klastrów poprzez minimalizację wewnątrzklasterowej sumy kwadratów odległości.
+
+**Inicjalizacja**
+
+Algorytm rozpoczyna się od losowego wyboru K punktów ze zbioru danych jako początkowych centroidów. Wybór początkowych centroidów ma znaczący wpływ na zbieżność algorytmu i jakość końcowego rozwiązania, ponieważ funkcja celu J jest nie-wypukła i może zawierać wiele lokalnych minimów.
+
+**Przypisanie punktów**
+            
+Każdy punkt jest przypisywany do najbliższego centroidu zgodnie z metryką odległości. Najczęściej używaną metryką jest odległość euklidesowa.
+            
+**Aktualizacja punktów**
+
+Po przypisaniu wszystkich punktów do klastrów, centroidy są aktualizowane jako środki masy (centroidy geometryczne) punktów należących do każdego klastra. Ta operacja przesuwa centroid w kierunku "centrum" punktów w klastrze, minimalizując tym samym funkcję celu J dla bieżących przypisań.
+   
+**Algorytm kończy działanie gdy spełniony jest jeden z warunków:**
+
+- Brak zmian w przypisaniach: żaden punkt nie zmienił klastra między iteracjami
+- Stabilność centroidów: zmieniają się mniej niż o ustalony, bardzo mały próg.
+- Osiągnięcie maksymalnej liczby iteracji: zabezpieczenie przed nieskończonym działaniem
+            
+Poniżej możesz zobaczyć iteracyjne zmiany przy obliczaniu klastrów na wybranym zbiorze danych. Wybierz liczbę klastrów, którą chcesz obliczyć, oraz liczbę iteracji którą chcesz zobaczyć.
+
+*zmiany pomiędzy pojedyńczymi iteracjami mogą być minimalne, dlatego wykresy wyświetlane będą co kilka z nich.*
+            """)
+col1, col2 = st.columns(2)              
+
 max_iter = 100
 
-n_clusters = st.slider("Liczba klastrów", 2, 10, 3)
-max_plots = st.slider("Liczba wykresów", 3, 10, 5)
+with col1:
+    n_clusters = st.slider("Liczba klastrów", 2, 10, 3)
+with col2:
+    max_plots = st.slider("Liczba wykresów", 3, 10, 5)
 
 # Uruchom K-means
 if st.button("Uruchom K-means"):

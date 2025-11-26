@@ -6,6 +6,14 @@ from io import StringIO
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+#------------------------Odkomentuj do finalnej wersji
+#st.set_page_config(page_title="Moja aplikacja", initial_sidebar_state="collapsed")
+#st.markdown("""
+#    <style>
+#        [data-testid="stSidebarNav"] {display: none;}
+#    </style>
+#""", unsafe_allow_html=True)
+
 def load_file_to_dataframe(uploaded_file):
     try:
         file_extension = uploaded_file.name.split('.')[-1].lower()
@@ -60,16 +68,14 @@ if "df" not in st.session_state:
         st.session_state.df = sns.load_dataset("iris")
 
 #------------------Początek---------------------
-st.title("Interaktywne Algorytmy Uczenia Maszynowego")
+st.title("Interaktywne algorytmy uczenia maszynowego")
 st.markdown("Witaj w aplikacji do interaktywnej wizualizacji algorytmów. Eksperymentuj z różnymi parametrami, wczytuj własne dane i obserwuj jak algorytmy klasteryzacji, klasyfikacji i regresji pracują w czasie rzeczywistym!")
 st.markdown("**Dostępne algorytmy:**")
 col1, col2, col3 = st.columns(3)
 with col1:
-    st.markdown("""
-    **Klasteryzacja**
-    - K-means
-    - x
-    """)
+    st.markdown("**Klasteryzacja**")
+    st.page_link("pages/k-means.py", label="K-means")
+    st.page_link("pages/dbscan.py", label="DBSCAN")  
 with col2:
     st.markdown("""
     **Klasyfikacja**
@@ -82,6 +88,24 @@ with col3:
     - x
     - x
     """)
+
+st.markdown("""
+Przed omówieniem samych algorytmu należy wspomnieć o przygotowywaniu danych, czyli standaryzacji danych i technice PCA  
+         
+**Standaryzacja (StandardScaler)**    
+Standaryzacja to proces przekształcania danych tak, aby każda cecha miała średnią równą 0 i odchylenie standardowe równe 1.  
+  
+**PCA (Principal Component Analysis)**
+PCA to technika redukcji wymiarowości, która przekształca dane do nowego układu współrzędnych, gdzie nowe osie (składowe główne) wyjaśniają maksymalną wariancję danych.
+PCA NIE jest wymagane dla K-means. K-means działa bezpośrednio na oryginalnych danych. Nie ma potrzeby na PCA dla samego algorytmu klasteryzacji.
+
+**Kiedy jest używane?**
+- Gdy masz więcej niż 3 cechy i chcesz wizualizować dane w 2D lub 3D
+- Gdy masz bardzo wiele cech (np. 50+) i chcesz przyspieszyć obliczenia
+- Gdy cechy są skorelowane i można je zredukować bez utraty wielu informacji
+            
+*PCA zawsze wiąże się z ryzykiem utraty informmacji*          
+            """)
 
 st.markdown("Możesz skorzystać z wbudowanego zbioru Irys, lub wczytać własny.")
 st.caption("Obsługiwane formaty to: csv, json oraz xml")

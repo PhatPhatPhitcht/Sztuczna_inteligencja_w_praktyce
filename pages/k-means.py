@@ -9,11 +9,14 @@ from matplotlib.animation import FuncAnimation
 import time
 import streamlit as st
 
-df = st.session_state.df # Pamiętaj żebu tu wrócić!!!--------------
-#from sklearn.datasets import load_iris
-#iris = load_iris()
-#df = pd.DataFrame(iris.data, columns=iris.feature_names)
-#-------------------------------------------------------------------
+st.set_page_config(page_title="Moja aplikacja", initial_sidebar_state="collapsed")
+st.markdown("""
+    <style>
+        [data-testid="stSidebarNav"] {display: none;}
+    </style>
+""", unsafe_allow_html=True)
+
+df = st.session_state.df
 
 # kolumny numeryczne i usuń braki
 data = df.select_dtypes(include=[np.number]).dropna()
@@ -82,58 +85,34 @@ class KMeansIterative:
 
 #----------------------------Początek streamlita--------------------------------
 
-st.header("K-means")
-st.markdown("""
-Przed omówieniem samego algorytmu należy wspomnieć o przygotowywaniu danych, czyli standaryzacji danych i technice PCA  
-         
-**Standaryzacja (StandardScaler)**    
-Standaryzacja to proces przekształcania danych tak, aby każda cecha miała średnią równą 0 i odchylenie standardowe równe 1.  
-  
-**Dlaczego jest kluczowa dla K-means?**
-- K-means używa odległości euklidesowej do przypisywania punktów do klastrów
-- Cechy o większych wartościach (np. pensja: 20000-80000) dominowałyby cechy o mniejszych (np. wiek: 20-60)
-- Bez standaryzacji algorytm skupiałby się głównie na cechach o największym zakresie wartości
-- Po standaryzacji wszystkie cechy mają równy wpływ na wynik klasteryzacji  
+st.page_link("main.py", label="⬅️ Powrót do strony głównej")
 
-**PCA (Principal Component Analysis)**
-PCA to technika redukcji wymiarowości, która przekształca dane do nowego układu współrzędnych, gdzie nowe osie (składowe główne) wyjaśniają maksymalną wariancję danych.
-PCA NIE jest wymagane dla K-means. K-means działa bezpośrednio na oryginalnych danych. Nie ma potrzeby na PCA dla samego algorytmu klasteryzacji.
-
-**Kiedy jest używane?**
-- Gdy masz więcej niż 3 cechy i chcesz wizualizować dane w 2D lub 3D
-- Gdy masz bardzo wiele cech (np. 50+) i chcesz przyspieszyć obliczenia
-- Gdy cechy są skorelowane i można je zredukować bez utraty wielu informacji
-            
-*PCA zawsze wiąże się z ryzykiem utraty informmacji*          
-            """)
 st.subheader("Algorytm K-means")
 st.markdown("""
-**Co to jest K-means?**
+Algorytm K-Means grupuje dane, próbując podzielić próbki na n grup o równej wariancji, minimalizując kryterium znane jako inercja (ang. inertia) lub suma kwadratów wewnątrz klastrów (patrz poniżej). Algorytm wymaga podania liczby klastrów. Dobrze skalowalny do dużej liczby próbek, jest szeroko stosowany w wielu dziedzinach.
             
-K-means to iteracyjny algorytm klasteryzacji należący do kategorii uczenia nienadzorowanego. Jego celem jest partycjonowanie zbioru danych na K rozłącznych klastrów poprzez minimalizację wewnątrzklasterowej sumy kwadratów odległości.
+Algorytm K-Means dzieli zbiór próbek na rozłączne klastry, z których każdy opisany jest średnią próbek w tym klastrze. Te średnie są nazywane centroidami; zazwyczaj nie są to rzeczywiste punkty ze zbioru, chociaż leżą w tej samej przestrzeni.
 
-**Inicjalizacja**
+Celem algorytmu K-Means jest wybór centroidów minimalizujących inercję, czyli sumę kwadratów odchyleń wewnątrz klastrów.
 
-Algorytm rozpoczyna się od losowego wyboru K punktów ze zbioru danych jako początkowych centroidów. Wybór początkowych centroidów ma znaczący wpływ na zbieżność algorytmu i jakość końcowego rozwiązania, ponieważ funkcja celu J jest nie-wypukła i może zawierać wiele lokalnych minimów.
+Inercję można traktować jako miarę spójności wewnątrz klastrów. Ma jednak kilka wad:
+-Zakłada, że klastry są wypukłe i izotropowe, co nie zawsze jest prawdą. Źle radzi sobie z klastrami wydłużonymi lub o nieregularnych kształtach.
+-Nie jest znormalizowana: wiadomo tylko, że mniejsze wartości są lepsze, a 0 jest idealne. W bardzo wysokich wymiarach odległości euklidesowe rosną (tzw. klątwa wymiarowości). Redukcja wymiarów, np. PCA, przed klasteryzacją k-means, może złagodzić ten problem i przyspieszyć obliczenia.
 
-**Przypisanie punktów**
-            
-Każdy punkt jest przypisywany do najbliższego centroidu zgodnie z metryką odległości. Najczęściej używaną metryką jest odległość euklidesowa.
-            
-**Aktualizacja punktów**
+Algorytm k-means jest często nazywany algorytmem Lloyda. Składa się z trzech kroków. Pierwszy wybiera centroidy początkowe — najprostsza metoda to losowy wybór próbek z zestawu danych. Następnie algorytm wykonuje dwie fazy w pętli:
+- Przypisanie każdej próbki do najbliższego centroidu.
+- Wyznaczenie nowych centroidów jako średnich próbek przypisanych do poprzednich centroidów.
 
-Po przypisaniu wszystkich punktów do klastrów, centroidy są aktualizowane jako środki masy (centroidy geometryczne) punktów należących do każdego klastra. Ta operacja przesuwa centroid w kierunku "centrum" punktów w klastrze, minimalizując tym samym funkcję celu J dla bieżących przypisań.
-   
-**Algorytm kończy działanie gdy spełniony jest jeden z warunków:**
+Różnica między starymi a nowymi centroidami jest obliczana i algorytm powtarza te kroki, aż do osiągnięcia progu — innymi słowy, gdy centroidy przestają się istotnie zmieniać.
 
-- Brak zmian w przypisaniach: żaden punkt nie zmienił klastra między iteracjami
-- Stabilność centroidów: zmieniają się mniej niż o ustalony, bardzo mały próg.
-- Osiągnięcie maksymalnej liczby iteracji: zabezpieczenie przed nieskończonym działaniem
-            
+Iteracje zwykle kończą się, gdy względny spadek funkcji celu jest mniejszy niż tolerancja; w tej implementacji — gdy centroidy przesuwają się o mniej niż wartość tolerancji.
+
+[Dowiedz się więcej:](https://scikit-learn.org/stable/modules/clustering.html#k-means)            
+
 Poniżej możesz zobaczyć iteracyjne zmiany przy obliczaniu klastrów na wybranym zbiorze danych. Wybierz liczbę klastrów, którą chcesz obliczyć, oraz liczbę iteracji którą chcesz zobaczyć.
 
-*zmiany pomiędzy pojedyńczymi iteracjami mogą być minimalne, dlatego wykresy wyświetlane będą co kilka z nich.*
-            """)
+*zmiany pomiędzy pojedyńczymi iteracjami mogą być minimalne, dlatego wykresy wyświetlane będą co kilka z nich.*            
+""")
 col1, col2 = st.columns(2)              
 
 max_iter = 100
@@ -144,7 +123,7 @@ with col2:
     max_plots = st.slider("Liczba wykresów", 3, 10, 5)
 
 # Uruchom K-means
-if st.button("Uruchom K-means"):
+if st.button("Uruchom K-means", type="primary"):
     kmeans = KMeansIterative(n_clusters=n_clusters, max_iter=max_iter)
     kmeans.fit(data_2d)
 
@@ -194,8 +173,6 @@ if st.button("Uruchom K-means"):
                    color='white', fontsize=12, fontweight='bold',
                    ha='center', va='center', zorder=6)
 
-        #ax.set_xlabel(f'PCA Składowa 1 ({pca.explained_variance_ratio_[0]:.1%} wariancji)', fontsize=12)
-        #ax.set_ylabel(f'PCA Składowa 2 ({pca.explained_variance_ratio_[1]:.1%} wariancji)', fontsize=12)
         ax.set_title(f'K-means Clustering - Iteracja {iteration+1}\nDataset: Irys ({len(data_2d)} punktów, {n_clusters} klastry)', 
                     fontsize=14, fontweight='bold')
         ax.legend(loc='upper right')

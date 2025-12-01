@@ -5,12 +5,17 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 import streamlit as st
 
-st.set_page_config(page_title="Moja aplikacja", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Interaktywne algorytmy uczenia maszynowego", initial_sidebar_state="collapsed")
 st.markdown("""
     <style>
         [data-testid="stSidebarNav"] {display: none;}
     </style>
 """, unsafe_allow_html=True)
+
+if 'df' not in st.session_state:
+    st.error("Brak danych! Najpierw załaduj stronę główną")
+    st.stop()
+
 
 if 'df' in st.session_state:
     df = st.session_state.df

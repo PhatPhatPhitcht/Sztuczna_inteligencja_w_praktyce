@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 #------------------------Odkomentuj do finalnej wersji
-#st.set_page_config(page_title="Moja aplikacja", initial_sidebar_state="collapsed")
+#st.set_page_config(page_title="Interaktywne algorytmy uczenia maszynowego", initial_sidebar_state="collapsed")
 #st.markdown("""
 #    <style>
 #        [data-testid="stSidebarNav"] {display: none;}
@@ -47,6 +47,12 @@ def load_file_to_dataframe(uploaded_file):
                 data.append(row)
             
             df = pd.DataFrame(data)
+            for col in df.columns:
+                try:
+                    df[col] = pd.to_numeric(df[col])
+                except (ValueError, TypeError):
+                    pass
+
             st.success(f"Wczytano plik XML: {uploaded_file.name}")
             
         else:
@@ -55,17 +61,17 @@ def load_file_to_dataframe(uploaded_file):
 
         st.session_state.df = df
 
-        st.write(f"**Wymiary:** {df.shape[0]} wierszy, {df.shape[1]} kolumn")
-        st.dataframe(df.head())
+        #st.write(f"**Wymiary:** {df.shape[0]} wierszy, {df.shape[1]} kolumn")
+        #st.dataframe(df.head())
         
         return True
         
     except Exception as e:
         st.error(f"Błąd podczas wczytywania pliku: {str(e)}")
         return False
-
+df_iris = sns.load_dataset("iris")
 if "df" not in st.session_state:
-        st.session_state.df = sns.load_dataset("iris")
+        st.session_state.df = df_iris
 
 #------------------Początek---------------------
 st.title("Interaktywne algorytmy uczenia maszynowego")
@@ -77,11 +83,9 @@ with col1:
     st.page_link("pages/k-means.py", label="K-means")
     st.page_link("pages/dbscan.py", label="DBSCAN")  
 with col2:
-    st.markdown("""
-    **Klasyfikacja**
-    - x
-    - x
-    """)
+    st.markdown("**Klasyfikacja**")
+    st.page_link("pages/decision_trees.py", label="Drzewa decyzyjne")
+
 with col3:
     st.markdown("""
     **Regresja**
@@ -108,78 +112,97 @@ PCA NIE jest wymagane dla K-means. K-means działa bezpośrednio na oryginalnych
             """)
 
 st.markdown("Możesz skorzystać z wbudowanego zbioru Irys, lub wczytać własny.")
-st.caption("Obsługiwane formaty to: csv, json oraz xml")
+#st.caption("Obsługiwane formaty to: csv, json oraz xml")
 
-d1, d2 = st.columns(2)
+#uploaded_file = st.file_uploader(
+#    "Wybierz plik (CSV, JSON lub XML)", 
+#    type=['csv', 'json', 'xml']
+#)
+#if uploaded_file is not None:
+#    load_file_to_dataframe(uploaded_file)
 
-with d1:
-    b1 = st.button("Załaduj własne dane")
+#d1, d2 = st.columns(2)
 
-with d2:
-    b2 = st.button("Dowiedz się więcej o zbiorze Irys")
+#with d1:
+    #b1 = st.button("Podgląd włąsnych danych")
+with st.expander("Wczytaj własne dane"):
+    uploaded_file = st.file_uploader(
+    "Wybierz plik (CSV, JSON lub XML)", 
+    type=['csv', 'json', 'xml']
+)
+    if uploaded_file is not None:
+        load_file_to_dataframe(uploaded_file)
+#with d2:
+#b2 = st.button("Dowiedz się więcej o zbiorze Irys")
 
-output = st.container()
+#output = st.container()
 
-with output:
-    if b1:
-        uploaded_file = st.file_uploader(
-            "Wybierz plik (CSV, JSON lub XML)", 
-            type=['csv', 'json', 'xml']
-        )
+#with output:
+ #   if b1:
+ #       #uploaded_file = st.file_uploader(
+ #       #    "Wybierz plik (CSV, JSON lub XML)", 
+ #       #    type=['csv', 'json', 'xml']
+ #       #)
+ #       #
+ #       if uploaded_file is not None:
+ #           st.header("Podgląd danych")
+ #           st.write(f"**Wymiary:** {st.session_state.df.shape[0]} wierszy, {st.session_state.df.shape[1]} kolumn")
+ #           st.dataframe(st.session_state.df.head())
+#
+ #       elif uploaded_file is None:
+ #           st.markdown("Wgraj własne dane")
 
-        if uploaded_file is not None:
-            load_file_to_dataframe(uploaded_file)
+    #if b2:
+with st.expander("Dowiedz się więcej o zbiorze Iris"):
+     #-------------------EDA---------------------------
+     #df = st.session_state.df
+    
+    if st.button("Wybierz Iris jako podstawowy zbiór"):
+        st.session_state.df = df_iris
+    st.caption("Iris jest domyślnym zbiorem w przypadku braku innych danych")
 
-            st.header("Podgląd danych")
+    st.markdown("""
+    Zbiór Iris to klasyczny dataset używany w statystyce i uczeniu maszynowym.
+    Zawiera 150 próbek trzech gatunków irysów:
+    - Iris setosa
+    - Iris versicolor
+    - Iris virginica
 
-            st.dataframe(st.session_state.df)
+    Dla każdej próbki zmierzono cztery cechy morfologiczne:
+    - sepal_length — Długość kielicha (cm)
+    - sepal_width — Szerokość kielicha (cm)
+    - petal_length — Długość płatka (cm)
+    - petal_width — Szerokość płatka (cm)
 
-    elif b2:
-        #-------------------EDA---------------------------
-        df = st.session_state.df
+    Zbiór jest niewielki, dobrze zbalansowany (50 próbek na gatunek).
+    
+                """)
 
-        st.markdown("""
-        Zbiór Iris to klasyczny dataset używany w statystyce i uczeniu maszynowym.
-        Zawiera 150 próbek trzech gatunków irysów:
-        - Iris setosa
-        - Iris versicolor
-        - Iris virginica
+    st.header("Podgląd danych")
 
-        Dla każdej próbki zmierzono cztery cechy morfologiczne:
-        - sepal_length — Długość kielicha (cm)
-        - sepal_width — Szerokość kielicha (cm)
-        - petal_length — Długość płatka (cm)
-        - petal_width — Szerokość płatka (cm)
+    st.dataframe(df_iris)
 
-        Zbiór jest niewielki, dobrze zbalansowany (50 próbek na gatunek).
-        
-                    """)
+    st.subheader("Statystyki opisowe")
+    st.write(df_iris.describe())
 
-        st.header("Podgląd danych")
+    st.subheader("Rozkład gatunków")
+    st.write(df_iris["species"].value_counts())
 
-        st.dataframe(df)
+    st.header("Rozłożenie danych:")
+    st.header("Boxplot")
+    labels = ["Długość kielicha", "Szerokość kielicha", "Długość płatka", "Szerokość płatka"]
 
-        st.subheader("Statystyki opisowe")
-        st.write(df.describe())
+    fig, ax = plt.subplots()
+    sns.boxplot(data=df_iris, orient="h", ax=ax)
+    ax.set_yticks(range(len(labels)))
+    ax.set_yticklabels(labels)
+    st.pyplot(fig)
 
-        st.subheader("Rozkład gatunków")
-        st.write(df["species"].value_counts())
+    st.header("Scatterplot")
 
-        st.header("Rozłożenie danych:")
-        st.header("Boxplot")
-        labels = ["Długość kielicha", "Szerokość kielicha", "Długość płatka", "Szerokość płatka"]
-
-        fig, ax = plt.subplots()
-        sns.boxplot(data=df, orient="h", ax=ax)
-        ax.set_yticks(range(len(labels)))
-        ax.set_yticklabels(labels)
-        st.pyplot(fig)
-
-        st.header("Scatterplot")
-
-        fig, ax = plt.subplots()
-        sns.scatterplot(data=df, x="sepal_length", y="sepal_width", hue="species", ax=ax)
-        ax.set_xlabel("Długość kielicha")
-        ax.set_ylabel("Szerokość kielicha")
-        st.pyplot(fig)
+    fig, ax = plt.subplots()
+    sns.scatterplot(data=df_iris, x="sepal_length", y="sepal_width", hue="species", ax=ax)
+    ax.set_xlabel("Długość kielicha")
+    ax.set_ylabel("Szerokość kielicha")
+    st.pyplot(fig)
 

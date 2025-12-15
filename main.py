@@ -7,12 +7,12 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 #------------------------Odkomentuj do finalnej wersji
-#st.set_page_config(page_title="Interaktywne algorytmy uczenia maszynowego", initial_sidebar_state="collapsed")
-#st.markdown("""
-#    <style>
-#        [data-testid="stSidebarNav"] {display: none;}
-#    </style>
-#""", unsafe_allow_html=True)
+st.set_page_config(page_title="Interaktywne algorytmy uczenia maszynowego", initial_sidebar_state="collapsed")
+st.markdown("""
+    <style>
+        [data-testid="stSidebarNav"] {display: none;}
+    </style>
+""", unsafe_allow_html=True)
 
 def load_file_to_dataframe(uploaded_file):
     try:
@@ -85,13 +85,13 @@ with col1:
 with col2:
     st.markdown("**Klasyfikacja**")
     st.page_link("pages/decision_trees.py", label="Drzewa decyzyjne")
-
+    st.page_link("pages/logistic_regression.py", label="Regresja logistyczna")
 with col3:
-    st.markdown("""
-    **Regresja**
-    - x
-    - x
-    """)
+    st.markdown("**Regresja**")
+    st.page_link("pages/dec_trees_regression.py", label="Drzewa decyzyjne")
+    st.page_link("pages/reg_wght.py", label="Regresja ważona")
+
+st.divider()
 
 st.markdown("""
 Przed omówieniem samych algorytmu należy wspomnieć o przygotowywaniu danych, czyli standaryzacji danych i technice PCA  
@@ -101,7 +101,6 @@ Standaryzacja to proces przekształcania danych tak, aby każda cecha miała śr
   
 **PCA (Principal Component Analysis)**
 PCA to technika redukcji wymiarowości, która przekształca dane do nowego układu współrzędnych, gdzie nowe osie (składowe główne) wyjaśniają maksymalną wariancję danych.
-PCA NIE jest wymagane dla K-means. K-means działa bezpośrednio na oryginalnych danych. Nie ma potrzeby na PCA dla samego algorytmu klasteryzacji.
 
 **Kiedy jest używane?**
 - Gdy masz więcej niż 3 cechy i chcesz wizualizować dane w 2D lub 3D

@@ -118,6 +118,9 @@ Poniżej możesz zobaczyć iteracyjne zmiany przy obliczaniu klastrów na wybran
 
 *zmiany pomiędzy pojedyńczymi iteracjami mogą być minimalne, dlatego wykresy wyświetlane będą co kilka z nich.*            
 """)
+
+st.divider()
+
 col1, col2 = st.columns(2)              
 
 max_iter = 100

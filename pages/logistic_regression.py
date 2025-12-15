@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
@@ -19,9 +20,10 @@ if 'df' not in st.session_state:
     st.stop()
 
 df = st.session_state.df
+#df = df_wine = sns.load_dataset('penguins').dropna()
 
 class LogisticRegressionIterative:
-    def __init__(self, C=1.0, penalty='l2', max_iter=100):
+    def __init__(self, C=1.0, penalty='l2', max_iter=1000):
         self.C = C
         self.penalty = penalty
         self.max_iter = max_iter
@@ -33,10 +35,11 @@ class LogisticRegressionIterative:
         model = LogisticRegression(
             C=self.C, 
             penalty=self.penalty, 
-            max_iter=1,
+            max_iter=5,
             warm_start=True,
             solver='saga' if self.penalty == 'l1' else 'lbfgs',
-            random_state=42
+            random_state=42,
+            tol=1e-4
         )
         
         self.history.append({
@@ -77,16 +80,17 @@ class LogisticRegressionIterative:
     def score(self, X, y):
         return self.model.score(X, y)
 #-----------------------------------------Rysowanie wykresów-------------------------------------------------
-def plot_decision_boundary(X, y, state, ax, title, model=None):
+def plot_decision_boundary(X_train, y_train, X_test, y_test, state, ax, title, model=None):
     
-    # Siatka punktów
-    x_min, x_max = X[:, 0].min() - 1, X[:, 0].max() + 1
-    y_min, y_max = X[:, 1].min() - 1, X[:, 1].max() + 1
+    X_all = np.vstack([X_train, X_test])
+
+    x_min, x_max = X_all[:, 0].min() - 1, X_all[:, 0].max() + 1
+    y_min, y_max = X_all[:, 1].min() - 1, X_all[:, 1].max() + 1
     xx, yy = np.meshgrid(np.linspace(x_min, x_max, 200),
                          np.linspace(y_min, y_max, 200))
     
     # Szukanie klas
-    unique_classes = np.unique(y)
+    unique_classes = np.unique(np.concatenate([y_train, y_test]))
     n_classes = len(unique_classes)
     
     colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', 
@@ -127,19 +131,31 @@ def plot_decision_boundary(X, y, state, ax, title, model=None):
             ax.contour(xx, yy, Z_colors, levels=np.arange(n_colors_needed + 1) - 0.5,
                       colors='black', linewidths=1.5, linestyles='--', alpha=0.6)
     
-    # Rysuj punkty danych
+    # punkty TRENINGOWE
     for idx, cls in enumerate(unique_classes):
-        mask = y == cls
-        ax.scatter(X[mask, 0], X[mask, 1], 
-                  c=colors[idx % len(colors)], 
-                  label=f'Klasa {cls}',
-                  alpha=0.8, s=70, edgecolors='black', linewidths=0.5, zorder=5)
+        mask = y_train == cls
+        if np.any(mask):
+            ax.scatter(X_train[mask, 0], X_train[mask, 1], 
+                      c=colors[idx % len(colors)], 
+                      alpha=0.8, s=80, edgecolors='black', linewidths=1.0, zorder=5)
+    
+    # punkty TESTOWE
+    for idx, cls in enumerate(unique_classes):
+        mask = y_test == cls
+        if np.any(mask):
+            ax.scatter(X_test[mask, 0], X_test[mask, 1], 
+                      c=colors[idx % len(colors)], 
+                      label=f'Klasa {cls}',
+                      alpha=0.8, s=80, edgecolors='black', linewidths=1.0, zorder=4)
+            ax.scatter(X_test[mask, 0], X_test[mask, 1],
+                      facecolors='none', edgecolors='black', 
+                      s=10, linewidths=1.0, zorder=6)
+    ax.scatter([], [], facecolors='none', edgecolors='black', 
+              s=10, linewidths=1.0, zorder=6, label='Punktu testowy')
     
     ax.set_title(title, fontsize=12, fontweight='bold', pad=10)
-    ax.legend(loc='upper right', fontsize=9, framealpha=0.9)
+    ax.legend(loc='upper right', fontsize=8, framealpha=0.9, ncol=1)
     ax.grid(True, alpha=0.3, linestyle='--')
-    #ax.set_xlabel('Składowa 1 (PCA)', fontsize=10)
-    #ax.set_ylabel('Składowa 2 (PCA)', fontsize=10)
 
 #--------------------------------Streamlit------------------------------------
 
@@ -147,24 +163,50 @@ st.page_link("main.py", label="⬅️ Powrót do strony głównej")
 
 st.subheader("Algorytm Regresji Logistycznej")
 st.markdown("""
-Regresja logistyczna to metoda klasyfikacji, która uczy się, jakie relacje zachodzą między zestawem cech opisujących obiekty a przynależnością tych obiektów do jednej z dwóch klas. W praktyce model buduje wewnętrzną funkcję, która na podstawie wartości cech przypisuje każdej obserwacji stopień „pewności” przynależenia do klasy pozytywnej — tę pewność można traktować jako prawdopodobieństwo. Proces uczenia polega na dopasowaniu parametrów modelu tak, by przewidywane prawdopodobieństwa dobrze odpowiadały rzeczywistym etykietom w zbiorze treningowym; po zakończeniu tego procesu model jest gotowy do stosowania na nowych danych. W odróżnieniu od prostych reguł typu „jeśli cecha większa niż wartość, to klasa A”, regresja logistyczna łączy sygnały z wielu cech jednocześnie i zwraca gładką ocenę prawdopodobieństwa, co czyni ją elastyczną, łatwą do interpretacji i szeroko stosowaną jako pierwszy wybór przy problemach binarnej klasyfikacji.
-
+Regresja logistyczna to metoda klasyfikacji, która uczy się, jakie relacje zachodzą między 
+zestawem cech opisujących obiekty a przynależnością tych obiektów do jednej z klas. Model 
+buduje wewnętrzną funkcję liniową, która na podstawie wartości cech przypisuje każdej 
+obserwacji pewną wagę. Taki surowy wynik przechodzi przez funkcję sigmoid, zmieniającą jego 
+zakres od [0, 1]. Wynikiem tego procesu jest reprezentacja prawdopodobieństwa należenia do 
+danej klasy. Proces uczenia polega na dopasowaniu parametrów modelu tak, by przewidywane 
+prawdopodobieństwa dobrze odpowiadały rzeczywistym etykietom w zbiorze treningowym. 
+W odróżnieniu od prostych reguł typu „jeśli cecha większa niż wartość, to klasa A”, regresja 
+logistyczna łączy sygnały z wielu cech jednocześnie i zwraca gładką ocenę prawdopodobieństwa, 
+co czyni ją elastyczną, łatwą do interpretacji i szeroko stosowaną przy problemach 
+klasyfikacji.
+            
 **Parametry:**
             
-Parametr oznaczany jako C w implementacjach regresji logistycznej pełni rolę kontrolera siły regularyzacji modelu. Mniejsza wartość C oznacza silniejszą kontrolę nad wielkością wag, a większa wartość C pozwala wagom swobodniej przyjmować duże wartości. W praktyce regularyzacja jest mechanizmem zapobiegającym nadmiernemu dopasowaniu modelu do szumu w danych — zmniejsza skłonność algorytmu do przeuczenia, czyli dopasowywania bardzo specyficznych wzorców, które nie generalizują poza zbiór treningowy. Kiedy C jest bardzo małe, model staje się „prostszym” opisem relacji: jego współczynniki są mocniej tłumione, co zwykle redukuje wariancję kosztem pewnego wzrostu błędu na zbiorze treningowym i prowadzi do niedouczenia.
+Parametr oznaczany jako **C** w implementacjach regresji logistycznej pełni rolę kontrolera siły 
+regularyzacji modelu. Mniejsza wartość **C** oznacza silniejszą kontrolę nad wielkością wag, a 
+większa wartość **C** pozwala wagom swobodniej przyjmować duże wartości. W praktyce regularyzacja 
+jest mechanizmem zapobiegającym nadmiernemu dopasowaniu modelu do szumu w danych — zmniejsza skłonność 
+algorytmu do przeuczenia, czyli dopasowywania bardzo specyficznych wzorców, które nie generalizują 
+poza zbiór treningowy. Kiedy **C** jest bardzo małe, model staje się „prostszym” opisem relacji: jego 
+współczynniki są mocniej tłumione, co zwykle redukuje wariancję kosztem pewnego wzrostu błędu na 
+zbiorze treningowym i prowadzi do niedouczenia.
 
-Parametr penalty (Regularyzacja) jest sposobem kontrolowania złożoności modelu poprzez dodanie kary za zbyt duże wartości wag. Dzięki temu model nie dopasowuje się zbyt mocno do danych treningowych i lepiej generalizuje na nowe dane.
-    - Regularyzacja typu l2 sprawia, że wszystkie wagi są „przyciągane” w kierunku mniejszych wartości, ale w sposób równomierny. Nie eliminuje ona całkowicie żadnej cechy: zamiast tego stara się rozłożyć wagę pomiędzy wiele cech, sprawiając, że każda z nich ma niewielki wpływ.
-    - Regularyzacja typu l1 działa bardziej „agresywnie” — nie tylko ogranicza wielkość wag, ale też sprzyja temu, aby część z nich spadła dokładnie do zera. W praktyce oznacza to, że model samodzielnie wybiera, które cechy są istotne, a które mogą zostać całkowicie pominięte.
+**Parametr penalty** (Regularyzacja) jest sposobem kontrolowania złożoności modelu poprzez dodanie 
+kary za zbyt duże wartości wag. Dzięki temu model nie dopasowuje się zbyt mocno do danych 
+treningowych i lepiej generalizuje na nowe dane.
+    - Regularyzacja typu **l2** sprawia, że wszystkie wagi są „przyciągane” w kierunku mniejszych 
+        wartości, ale w sposób równomierny. Nie eliminuje ona całkowicie żadnej cechy: zamiast tego 
+        stara się rozłożyć wagę pomiędzy wiele cech, sprawiając, że każda z nich ma niewielki wpływ.
+    - Regularyzacja typu **l1** działa bardziej „agresywnie” — nie tylko ogranicza wielkość wag, 
+        ale też sprzyja temu, aby część z nich spadła dokładnie do zera. W praktyce oznacza to, że model 
+        samodzielnie wybiera, które cechy są istotne, a które mogą zostać całkowicie pominięte.
             
-Parametr max_iter kontroluje, ile kroków optymalizacyjnych algorytm może wykonać podczas próby dopasowania wag. Mała wartość może skutkować zakończeniem treningu przed wyuczeniem algorytmu.
-
 Istotne w praktycznym stosowaniu tych parametrów jest rozumienie ich wzajemnych powiązań oraz wpływu na jakość i stabilność modelu. Regularyzacja i jej siła (penalty oraz C) decydują o złożoności modelu i jego odporności na szum, a max_iter zapewnia, że proces optymalizacji ma szansę dojść do końca.            
 
 [Dowiedz się więcej](https://scikit-learn.org/stable/modules/linear_model.html#logistic-regression)
 
 Poniżej możesz obserwować, jak granica decyzyjna zmienia się w trakcie treningu modelu.
 """)
+
+st.divider()
+
+with st.expander("Podgląd danych"):
+    st.dataframe(st.session_state.df.head())
 
 # Wybór kolumny docelowej
 numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
@@ -205,22 +247,22 @@ if target_col:
     with col3:
         st.metric("Liczba klas", y.nunique())
     
-    st.markdown("---")
+    st.divider()
     st.markdown("### Parametry modelu")
     
     # Parametry modelu
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3= st.columns(3)
     with col1:
         C_value = st.slider("C (odwrotność regularyzacji)", 
                            min_value=0.01, max_value=10.0, value=1.0, step=0.1)
     with col2:
         penalty_type = st.selectbox("Penalty (regularyzacja)", ['l2', 'l1'])
     with col3:
-        max_iter = st.slider("Maksymalna liczba iteracji", 
-                           min_value=10, max_value=200, value=100, step=10)
-    with col4:
+        #max_iter = st.slider("Maksymalna liczba iteracji", 
+                           #min_value=10, max_value=200, value=100, step=10)
         n_plots = st.slider("Liczba wykresów", 
-                          min_value=3, max_value=15, value=7, step=1)
+                          min_value=3, max_value=15, value=7, step=1)                   
+    #with col4:
     
     if st.button("Trenuj model", type="primary"):
         with st.spinner("Przetwarzanie danych..."):
@@ -231,46 +273,53 @@ if target_col:
             pca = PCA(n_components=2)
             X_pca = pca.fit_transform(X_scaled)
             
+            X_train, X_test, y_train, y_test = train_test_split(
+                X_pca, y, test_size=20, random_state=42, stratify=y
+            )
+
             st.session_state['pca_variance'] = pca.explained_variance_ratio_.sum()
         
         with st.spinner("Trenowanie modelu..."):
             # Trenowanie modelu
-            lr = LogisticRegressionIterative(C=C_value, penalty=penalty_type, max_iter=max_iter)
-            lr.fit(X_pca, y)
+            lr = LogisticRegressionIterative(C=C_value, penalty=penalty_type, max_iter=1000)
+            lr.fit(X_train, y_train)
             
             st.session_state['trained_model'] = lr.model
             st.session_state['scaler'] = scaler
             st.session_state['pca'] = pca
-            st.session_state['X_pca'] = X_pca
-            st.session_state['y'] = y
+            st.session_state['X_train'] = X_train
+            st.session_state['X_test'] = X_test
+            st.session_state['y_train'] = y_train
+            st.session_state['y_test'] = y_test
             st.session_state['feature_cols'] = feature_cols
             st.session_state['target_col'] = target_col
             st.session_state['lr_history'] = lr.history
-            st.session_state['final_score'] = lr.score(X_pca, y)
+            st.session_state['train_score'] = lr.score(X_train, y_train)
+            st.session_state['test_score'] = lr.score(X_test, y_test)
             st.session_state['C_value'] = C_value
-            st.session_state['max_iter'] = max_iter
             st.session_state['n_plots'] = n_plots
+            st.session_state['test_size'] = 20
         
         st.rerun()
     
     if 'trained_model' in st.session_state and st.session_state.get('target_col') == target_col:
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Dokładność (accuracy)", f"{st.session_state['final_score']:.3f}")
+            st.metric("Dokładność (accuracy)", f"{st.session_state['test_score']:.3f}")
         with col2:
             st.metric("Liczba iteracji", len(st.session_state['lr_history']) - 1)
         with col3:
             st.metric("Współczynnik C", st.session_state['C_value'])
         
-        st.markdown("---")
-        st.subheader(f"Ewolucja granicy decyzyjnej ({len(st.session_state['lr_history'])} kroków)")
+        st.subheader(f"Ewolucja granicy decyzyjnej ({len(st.session_state['lr_history'])-1} kroków)")
         
         # Wybieranie kroków
         lr_history = st.session_state['lr_history']
-        X_pca = st.session_state['X_pca']
-        y = st.session_state['y']
+        X_train = st.session_state['X_train']
+        X_test = st.session_state['X_test']
+        y_train = st.session_state['y_train']
+        y_test = st.session_state['y_test']
         n_plots = st.session_state['n_plots']
-        max_iter = st.session_state['max_iter']
         
         total_steps = len(lr_history)
         if total_steps <= n_plots:
@@ -286,8 +335,9 @@ if target_col:
             
             fig, ax = plt.subplots(figsize=(10, 7))
             
-            title = f"Krok {state['iteration']+1}\n{state['description']}"
-            plot_decision_boundary(X_pca, y, state, ax, title, st.session_state['trained_model'])
+            title = f"Krok {state['iteration']}\n{state['description']}"
+            plot_decision_boundary(X_train, y_train, X_test, y_test, state, ax, title, 
+                                 st.session_state['trained_model'])
             
             plt.tight_layout()
             st.pyplot(fig)

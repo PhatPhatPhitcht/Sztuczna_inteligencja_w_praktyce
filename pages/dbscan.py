@@ -152,7 +152,7 @@ Poniżej możesz zobaczyć zmiany przy znajdywaniu klastrów przy różnym dobor
 *Wykres pokazuje tylko moment znalezienia nowego klastra*            
            
             """)
-
+st.divider()
 
 col1, col2, col3 = st.columns(3)
 with col1:

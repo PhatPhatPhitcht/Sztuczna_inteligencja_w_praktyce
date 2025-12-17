@@ -137,17 +137,29 @@ st.page_link("main.py", label="⬅️ Powrót do strony głównej")
 
 st.subheader("Algorytm DBSCAN")
 st.markdown("""
-Algorytm DBSCAN traktuje klastry jako obszary o dużej gęstości oddzielone obszarami o małej gęstości. Dzięki takiemu ogólnemu podejściu klastry wykrywane przez DBSCAN mogą mieć dowolny kształt, w przeciwieństwie do k-means, który zakłada, że klastry mają kształt wypukły. Centralnym pojęciem DBSCAN jest próbka rdzeniowa (core sample), czyli próbka znajdująca się w obszarze o dużej gęstości. Klaster stanowi zatem zbiór próbek rdzeniowych leżących blisko siebie (według wybranej miary odległości) oraz zbiór próbek nierdzeniowych, które są sąsiadami próbek rdzeniowych, lecz same nimi nie są. Algorytm ma dwa parametry — min_samples i eps — które formalnie definiują, co oznacza „gęstość”. Wyższe min_samples lub niższe eps oznaczają większą wymaganą gęstość do utworzenia klastra.
+**Algorytm DBSCAN** traktuje klastry jako obszary o dużej gęstości oddzielone obszarami o małej gęstości. Dzięki takiemu ogólnemu 
+            podejściu klastry wykrywane przez DBSCAN mogą mieć dowolny kształt, w przeciwieństwie do k-means, który zakłada, 
+            że klastry mają kształt wypukły. Centralnym pojęciem DBSCAN jest **próbka rdzeniowa** (ang. \textsl{core sample}), czyli próbka 
+            znajdująca się w obszarze o dużej gęstości. Klaster stanowi zatem zbiór próbek rdzeniowych leżących blisko siebie 
+            (według wybranej miary odległości) oraz zbiór próbek nierdzeniowych, które są sąsiadami próbek rdzeniowych, lecz same 
+            nimi nie są. Algorytm ma dwa parametry: \textbf{min_samples} i \textbf{eps} które formalnie definiują, co oznacza „gęstość”. Wyższe 
+            min_samples lub niższe eps oznaczają większą wymaganą gęstość do utworzenia klastra.
 
-Bardziej formalnie, próbka rdzeniowa to taka próbka, dla której istnieje co najmniej min_samples innych próbek w odległości eps, uznawanych za jej sąsiadów. Oznacza to, że próbka ta znajduje się w gęstym obszarze przestrzeni. Klaster jest zbiorem próbek rdzeniowych, które można uzyskać, rekurencyjnie biorąc próbkę rdzeniową, znajdując wszystkich jej sąsiadów będących próbkami rdzeniowymi, a następnie sąsiadów tych próbek rdzeniowych itd. Klaster zawiera również próbki nierdzeniowe — są to próbki będące sąsiadami próbek rdzeniowych, lecz same niebędące próbkami rdzeniowymi. Intuicyjnie leżą one na obrzeżach klastra.
+Bardziej formalnie, **próbka rdzeniowa** to taka próbka, dla której istnieje co najmniej min_samples innych próbek w odległości eps,             uznawanych za jej sąsiadów. Oznacza to, że próbka ta znajduje się w gęstym obszarze przestrzeni. Klaster jest zbiorem             próbek rdzeniowych, które można uzyskać, rekurencyjnie biorąc próbkę rdzeniową, znajdując wszystkich jej sąsiadów             będących próbkami rdzeniowymi, a następnie sąsiadów tych próbek rdzeniowych itd. Klaster zawiera również próbki             nierdzeniowe — są to próbki będące sąsiadami próbek rdzeniowych, lecz same niebędące próbkami rdzeniowymi.             Intuicyjnie leżą one na obrzeżach klastra.
 
-Każda próbka rdzeniowa należy do klastra. Próbka, która nie jest próbką rdzeniową i znajduje się w odległości co najmniej eps od każdej próbki rdzeniowej, jest uznawana za punkt odstający (outlier).
+Każda próbka rdzeniowa należy do klastra. Próbka, która nie jest próbką rdzeniową i znajduje się w odległości co najmniej eps od 
+            każdej próbki rdzeniowej, jest uznawana za **punkt odstający (outlier)**.
 
-Parametr min_samples wpływa głównie na odporność algorytmu na szum — w przypadku dużych i zaszumionych zbiorów danych często warto go zwiększyć. Natomiast parametr eps jest kluczowy i zwykle nie powinien pozostawać na wartości domyślnej. Określa on lokalne sąsiedztwo punktów: zbyt mała wartość sprawia, że większość danych pozostaje niesklasteryzowana (oznaczona jako -1, czyli „szum”), a zbyt duża prowadzi do łączenia pobliskich klastrów w jeden, a ostatecznie może spowodować, że cały zbiór zostanie zwrócony jako pojedynczy klaster.
+Parametr **min_samples** wpływa głównie na odporność algorytmu na szum — w przypadku dużych i zaszumionych zbiorów danych często 
+            warto go zwiększyć. Natomiast parametr eps jest kluczowy i zwykle nie powinien pozostawać na wartości domyślnej. 
+            Określa on lokalne sąsiedztwo punktów: zbyt mała wartość sprawia, że większość danych pozostaje niesklasteryzowana 
+            (oznaczona jako -1, czyli „szum”), a zbyt duża prowadzi do łączenia pobliskich klastrów w jeden, a ostatecznie może 
+            spowodować, że cały zbiór zostanie zwrócony jako pojedynczy klaster.
 
 [Dowiedz się więcej:](https://scikit-learn.org/stable/modules/clustering.html#dbscan)            
 
-Poniżej możesz zobaczyć zmiany przy znajdywaniu klastrów przy różnym doborze parametrów eps i min_samples. Zwróć uwagę, jak bardzo wyniki zmieniają się przy nawet małych zmianach.
+Poniżej możesz zobaczyć zmiany przy znajdywaniu klastrów przy różnym doborze parametrów eps i min_samples. Zwróć uwagę, jak 
+            bardzo wyniki zmieniają się przy nawet małych zmianach.
 
 *Wykres pokazuje tylko moment znalezienia nowego klastra*            
            

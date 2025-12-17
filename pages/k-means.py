@@ -31,7 +31,7 @@ data_scaled = scaler.fit_transform(data)
 
 pca = PCA(n_components=2)
 data_2d = pca.fit_transform(data_scaled)
-
+explained_variance = pca.explained_variance_ratio_
 
 class KMeansIterative:
     def __init__(self, n_clusters=3, max_iter=100, random_state=42):
@@ -152,6 +152,8 @@ if st.button("Uruchom K-means", type="primary"):
     colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', 
           '#F38181', '#AA96DA', '#FCBAD3', '#A8E6CF', '#FFD3B6']
 
+    markers = ['o', 's', '^', 'D', 'P', 'X', 'v', '<', '>', '*']
+
     #---------------------Wykresy----------------------
     for frame in frames_to_show:
         state = kmeans.history[frame]
@@ -165,9 +167,17 @@ if st.button("Uruchom K-means", type="primary"):
         # Punkty
         for k in range(n_clusters):
             cluster_points = data_2d[labels == k]
-            ax.scatter(cluster_points[:, 0], cluster_points[:, 1], 
-                      c=colors[k], label=f'Klaster {k+1}', 
-                      alpha=0.6, s=50)
+            ax.scatter(
+                            cluster_points[:, 0],
+                            cluster_points[:, 1],
+                            c=colors[k],
+                            marker=markers[k % len(markers)],
+                            label=f'Klaster {k+1}',
+                            alpha=0.6,
+                            s=60,
+                            edgecolors='black',
+                            linewidths=0.5
+                        )
 
         # Centroidy
         ax.scatter(centroids[:, 0], centroids[:, 1], 
@@ -181,6 +191,9 @@ if st.button("Uruchom K-means", type="primary"):
                    color='white', fontsize=12, fontweight='bold',
                    ha='center', va='center', zorder=6)
 
+        ax.set_xlabel(f'PC1 ({explained_variance[0]*100:.1f}% wariancji)')
+        ax.set_ylabel(f'PC2 ({explained_variance[1]*100:.1f}% wariancji)')
+
         ax.set_title(f'K-means Clustering - Iteracja {iteration+1}\nDataset: Irys ({len(data_2d)} punktów, {n_clusters} klastry)', 
                     fontsize=14, fontweight='bold')
         ax.legend(loc='upper right')
@@ -190,4 +203,9 @@ if st.button("Uruchom K-means", type="primary"):
 
         st.pyplot(fig)
         plt.close(fig)
+
+    st.markdown("""
+    **Procent wariacji** oznacza, że ten wymiar zachowuje taką ilość informacji o zróżnicowaniu danych. 
+                PC1 + PC2 nie muszą dawać 100%, ale im bliżej 100%, tym lepiej zachowana struktura danych po redukcji wymiarów.
+    """)
     #---------------------Koniec Wykresów----------------------

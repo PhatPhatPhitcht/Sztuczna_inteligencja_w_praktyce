@@ -88,6 +88,7 @@ with col2:
     st.page_link("pages/logistic_regression.py", label="Regresja logistyczna")
 with col3:
     st.markdown("**Regresja**")
+    st.page_link("pages/lreg.py", label="Regresja liniowa")
     st.page_link("pages/dec_trees_regression.py", label="Drzewa decyzyjne")
     st.page_link("pages/reg_wght.py", label="Regresja ważona")
 

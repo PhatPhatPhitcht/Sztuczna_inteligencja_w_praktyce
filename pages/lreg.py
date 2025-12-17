@@ -1,7 +1,9 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
@@ -138,7 +140,6 @@ if st.session_state.is_trained:
     m_test = st.session_state.metrics_test
     c1, c2, c3, c4 = st.columns(4)
     
-    # Delta pokazuje różnicę (im mniejsza tym lepiej - brak overfittingu)
     r2_delta = m_test['R2'] - m_train['R2']
     mse_delta = m_test['MSE'] - m_train['MSE']
     rmse_delta = m_test['RMSE'] - m_train['RMSE']
@@ -148,8 +149,6 @@ if st.session_state.is_trained:
     c2.metric("MSE", f"{m_test['MSE']:.4f}", f"{mse_delta:+.4f}", delta_color="inverse")
     c3.metric("RMSE", f"{m_test['RMSE']:.4f}", f"{rmse_delta:+.4f}", delta_color="inverse")
     c4.metric("MAE", f"{m_test['MAE']:.4f}", f"{mae_delta:+.4f}", delta_color="inverse")
-    
-    # Pierwszy argument - label, Drugi argument - główna wartość do wyświetlenia, Trzeci argument - różnica, która automatycznie tworzy strzałkę
 
     st.markdown("""
         *Zbyt duże różnice między train / test mogą świadczyć o przeuczenieuczeniu.*
@@ -157,63 +156,147 @@ if st.session_state.is_trained:
 
     st.markdown("**Wykresy diagnostyczne**")
     
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+    #col1, col2 = st.columns([5, 5])
     
-    # Wykres : Wartości rzeczywiste vs. przewidywane (linia regresji)
-    ax1.scatter(st.session_state.y_test, st.session_state.y_pred, 
-                alpha=0.6, edgecolors='k', linewidth=0.5, s=50)
+    #with col1:
+        # Wykres 1: Wartości rzeczywiste vs. przewidywane
+    fig1 = go.Figure()
+    
+    fig1.add_trace(
+        go.Scatter(
+            x=st.session_state.y_test,
+            y=st.session_state.y_pred,
+            mode='markers',
+            name='Predykcje',
+            marker=dict(
+                size=8,
+                color='steelblue',
+                opacity=0.6,
+                line=dict(width=0.5, color='darkblue')
+            ),
+            hovertemplate='<b>Rzeczywiste:</b> %{x:.2f}<br><b>Przewidywane:</b> %{y:.2f}<extra></extra>'
+        )
+    )
     
     min_val = min(st.session_state.y_test.min(), st.session_state.y_pred.min())
     max_val = max(st.session_state.y_test.max(), st.session_state.y_pred.max())
-    ax1.plot([min_val, max_val], [min_val, max_val], 'r--', lw=2, label='Idealna predykcja')
     
-    ax1.set_xlabel('Wartości rzeczywiste', fontsize=11)
-    ax1.set_ylabel('Wartości przewidywane', fontsize=11)
-    ax1.set_title('Wartości rzeczywiste vs. Przewidywane', fontsize=12, fontweight='bold')
-    ax1.legend()
-    ax1.grid(True, alpha=0.3)
+    fig1.add_trace(
+        go.Scatter(
+            x=[min_val, max_val],
+            y=[min_val, max_val],
+            mode='lines',
+            name='Idealna predykcja',
+            line=dict(color='red', width=2, dash='dash'),
+            hovertemplate='Idealna predykcja<extra></extra>'
+        )
+    )
     
-    # Wykres : Wykres reszt
-    ax2.scatter(st.session_state.y_pred, st.session_state.residuals, 
-                alpha=0.6, edgecolors='k', linewidth=0.5, s=50)
-    ax2.axhline(y=0, color='r', linestyle='--', lw=2, label='Reszty = 0')
-    ax2.set_xlabel('Wartości przewidywane', fontsize=11)
-    ax2.set_ylabel('Reszty (błędy)', fontsize=11)
-    ax2.set_title('Wykres reszt', fontsize=12, fontweight='bold')
-    ax2.legend()
-    ax2.grid(True, alpha=0.3)
+    fig1.update_layout(
+        title='Wartości rzeczywiste vs. Przewidywane',
+        xaxis_title="Wartości rzeczywiste",
+        yaxis_title="Wartości przewidywane",
+        height=500,
+        showlegend=True,
+        hovermode='closest',
+        plot_bgcolor='white',
+        xaxis=dict(showgrid=True, gridcolor='lightgray'),
+        yaxis=dict(showgrid=True, gridcolor='lightgray'),
+        font=dict(size=11)
+    )
     
-    plt.tight_layout()
-    st.pyplot(fig)
+    st.plotly_chart(fig1, use_container_width=True)
+    
+    #with col2:
+        # Wykres 2: Wykres reszt
+    fig2 = go.Figure()
+    
+    fig2.add_trace(
+        go.Scatter(
+            x=st.session_state.y_pred,
+            y=st.session_state.residuals,
+            mode='markers',
+            name='Reszty',
+            marker=dict(
+                size=8,
+                color='darkorange',
+                opacity=0.6,
+                line=dict(width=0.5, color='darkred')
+            ),
+            hovertemplate='<b>Przewidywane:</b> %{x:.2f}<br><b>Reszta:</b> %{y:.2f}<extra></extra>'
+        )
+    )
+    
+    fig2.add_trace(
+        go.Scatter(
+            x=[st.session_state.y_pred.min(), st.session_state.y_pred.max()],
+            y=[0, 0],
+            mode='lines',
+            name='Reszty = 0',
+            line=dict(color='red', width=2, dash='dash'),
+            hovertemplate='Reszty = 0<extra></extra>'
+        )
+    )
+    
+    fig2.update_layout(
+        title='Wykres reszt',
+        xaxis_title="Wartości przewidywane",
+        yaxis_title="Reszty (błędy)",
+        height=500,
+        showlegend=True,
+        hovermode='closest',
+        plot_bgcolor='white',
+        xaxis=dict(showgrid=True, gridcolor='lightgray'),
+        yaxis=dict(showgrid=True, gridcolor='lightgray'),
+        font=dict(size=11)
+    )
+    
+    st.plotly_chart(fig2, use_container_width=True)
 
-    # Wykres PCA (jeśli więcej niż 2 cechy)
+    # Wykres PCA
     if len(st.session_state.features) > 2:
         st.markdown("**Wizualizacja PCA z rozkładem reszt**")
         
         pca = PCA(n_components=2)
         X_pca = pca.fit_transform(st.session_state.X_test_scaled)
 
-        fig, ax = plt.subplots(figsize=(10, 6))
-        scatter = ax.scatter(
-            X_pca[:, 0],
-            X_pca[:, 1],
-            c=st.session_state.residuals,
-            cmap='RdYlGn_r',
-            alpha=0.6,
-            edgecolors='k',
-            linewidth=0.5,
-            s=50
+        fig_pca = go.Figure()
+        
+        fig_pca.add_trace(
+            go.Scatter(
+                x=X_pca[:, 0],
+                y=X_pca[:, 1],
+                mode='markers',
+                marker=dict(
+                    size=10,
+                    color=st.session_state.residuals,
+                    colorscale='RdYlGn_r',
+                    showscale=True,
+                    opacity=0.7,
+                    line=dict(width=0.5, color='black'),
+                    colorbar=dict(
+                        title="Reszty",
+                        thickness=15,
+                        len=0.7
+                    )
+                ),
+                hovertemplate='<b>PC1:</b> %{x:.2f}<br><b>PC2:</b> %{y:.2f}<br><b>Reszta:</b> %{marker.color:.2f}<extra></extra>'
+            )
         )
         
-        ax.set_xlabel(f'PC1 ({pca.explained_variance_ratio_[0]:.1%} wariancji)', fontsize=11)
-        ax.set_ylabel(f'PC2 ({pca.explained_variance_ratio_[1]:.1%} wariancji)', fontsize=11)
-        ax.set_title('Rozkład reszt w przestrzeni PCA', fontsize=12, fontweight='bold')
-        ax.grid(True, alpha=0.3)
+        fig_pca.update_layout(
+            title='Rozkład reszt w przestrzeni PCA',
+            xaxis_title=f'PC1 ({pca.explained_variance_ratio_[0]:.1%} wariancji)',
+            yaxis_title=f'PC2 ({pca.explained_variance_ratio_[1]:.1%} wariancji)',
+            height=600,
+            hovermode='closest',
+            plot_bgcolor='white',
+            xaxis=dict(showgrid=True, gridcolor='lightgray'),
+            yaxis=dict(showgrid=True, gridcolor='lightgray'),
+            font=dict(size=11)
+        )
         
-        cbar = plt.colorbar(scatter, ax=ax)
-        cbar.set_label('Reszty', rotation=270, labelpad=20)
-        
-        st.pyplot(fig)
+        st.plotly_chart(fig_pca, use_container_width=True)
 
     st.markdown("""
         **Zielone** = małe błędy (model dobrze przewidział)

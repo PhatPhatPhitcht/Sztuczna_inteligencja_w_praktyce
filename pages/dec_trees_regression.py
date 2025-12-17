@@ -385,17 +385,50 @@ if target_column:
         y_train = df[target].drop(st.session_state.regression_y_test.index)
         y_train_pred = model.predict(X_train)
         
-        fig2, ax2 = plt.subplots(figsize=(10, 6))
-        ax2.scatter(y_train, y_train_pred, alpha=0.5, label='Zbiór treningowy', color='orange')
-        ax2.scatter(y_test, y_pred, alpha=0.5, label='Zbiór testowy', color='blue')
-        ax2.plot([min(y_train.min(), y_test.min()), max(y_train.max(), y_test.max())], 
-                 [min(y_train.min(), y_test.min()), max(y_train.max(), y_test.max())], 
-                 'r--', lw=2, label='Idealna predykcja')
-        ax2.set_xlabel('Wartości rzeczywiste')
-        ax2.set_ylabel('Wartości przewidywane')
-        ax2.set_title('Porównanie wartości rzeczywistych i przewidywanych')
-        ax2.legend()
-        st.pyplot(fig2)
+        fig2 = go.Figure()
+
+        # Zbiór treningowy
+        fig2.add_trace(go.Scatter(
+            x=y_train,
+            y=y_train_pred,
+            mode='markers',
+            name='Zbiór treningowy',
+            marker=dict(color='orange', size=8, opacity=0.5),
+            hovertemplate='<b>Treningowy</b><br>Rzeczywiste: %{x:.2f}<br>Przewidywane: %{y:.2f}<extra></extra>'
+        ))
+
+        # Zbiór testowy
+        fig2.add_trace(go.Scatter(
+            x=y_test,
+            y=y_pred,
+            mode='markers',
+            name='Zbiór testowy',
+            marker=dict(color='blue', size=8, opacity=0.5),
+            hovertemplate='<b>Testowy</b><br>Rzeczywiste: %{x:.2f}<br>Przewidywane: %{y:.2f}<extra></extra>'
+        ))
+
+        # Linia idealnej predykcji
+        min_val = min(y_train.min(), y_test.min())
+        max_val = max(y_train.max(), y_test.max())
+        fig2.add_trace(go.Scatter(
+            x=[min_val, max_val],
+            y=[min_val, max_val],
+            mode='lines',
+            name='Idealna predykcja',
+            line=dict(color='red', width=2, dash='dash')
+        ))
+
+        fig2.update_layout(
+            title='Porównanie wartości rzeczywistych i przewidywanych',
+            xaxis_title='Wartości rzeczywiste',
+            yaxis_title='Wartości przewidywane',
+            hovermode='closest',
+            showlegend=True,
+            width=800,
+            height=600
+        )
+
+        st.plotly_chart(fig2, use_container_width=True)
 
         st.markdown("""
         Wykres pokazuje jak dobrze model przewiduje wartości w porównaniu z rzeczywistymi danymi ze zbioru testowego:

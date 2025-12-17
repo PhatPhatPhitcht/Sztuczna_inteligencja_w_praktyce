@@ -45,14 +45,14 @@ Model stara się lepiej do nich dopasować linię regresji do bardziej wiarygodn
 **Siła ważenia** kontroluje jak mocno algorytm stosuje wagi:
 - 0% = ignoruje wagi całkowicie (zwykła regresja liniowa)
 - 100% = pełne ważenie (maksymalny efekt IRLS)
-- Wartości pośrednie (np. 50%) to kompromis – łagodniejsze ważenie, które może działać lepiej gdy dane są trudne
+- Wartości pośrednie (np. 50%) to kompromis - łagodniejsze ważenie, które może działać lepiej gdy dane są trudne
 
 **Liczba iteracji IRLS** określa ile razy algorytm przeliczy wagi:
 - 1 iteracja = szybkie, ale może nie wystarczyć do pełnej korekcji
 - 3-5 iteracji = typowo wystarczające (algorytm zbiega się)
 - 10+ iteracji = rzadko potrzebne, chyba że dane są bardzo trudne
 
-Więcej iteracji nie zawsze oznacza lepszy model – jeśli algorytm zbiegł się wcześniej, dodatkowe iteracje nic nie zmienią.
+Więcej iteracji nie zawsze oznacza lepszy model - jeśli algorytm zbiegł się wcześniej, dodatkowe iteracje nic nie zmienią.
 
 [Regresja liniowa](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html)
             
@@ -200,13 +200,13 @@ Reszta to różnica między rzeczywistą wartością a przewidywaną: reszta = y
 
 **Oś X (wartości przewidywane):** Pokazuje co model przewidział dla danego punktu
 **Oś Y (reszty):** Pokazuje o ile model się pomylił
-**Linia y=0:** Idealna sytuacja – brak błędu
+**Linia y=0:** Idealna sytuacja - brak błędu
 
 **Punkty niebieskie (Train):** Błędy na zbiorze treningowym
 **Punkty czerwone (Test):** Błędy na zbiorze testowym (ważniejsze dla oceny generalizacji!)
 
 **W kontekście regresji ważonej:**
-Przed zastosowaniem wag często widać "lejek" – reszty rosną w jednym kierunku, co świadczy o heteroskedastyczności danych.
+Przed zastosowaniem wag często widać "lejek" - reszty rosną w jednym kierunku, co świadczy o heteroskedastyczności danych.
 """)
 
 fig_residuals = go.Figure()

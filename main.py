@@ -5,71 +5,24 @@ import xml.etree.ElementTree as ET
 from io import StringIO
 import matplotlib.pyplot as plt
 import seaborn as sns
+from utils.file_loader import load_file_to_dataframe
+from sklearn.datasets import fetch_openml
 
-#------------------------Odkomentuj do finalnej wersji
 st.set_page_config(page_title="Interaktywne algorytmy uczenia maszynowego", initial_sidebar_state="collapsed")
 st.markdown("""
     <style>
         [data-testid="stSidebarNav"] {display: none;}
     </style>
 """, unsafe_allow_html=True)
-
-def load_file_to_dataframe(uploaded_file):
-    try:
-        file_extension = uploaded_file.name.split('.')[-1].lower()
-        
-        if file_extension == 'csv':
-            df = pd.read_csv(uploaded_file)
-            st.success(f"Wczytano plik CSV: {uploaded_file.name}")
-            
-        elif file_extension == 'json':
-            content = uploaded_file.read().decode('utf-8')
-            data = json.loads(content)
-            
-            if isinstance(data, list):
-                df = pd.DataFrame(data)
-            elif isinstance(data, dict):
-                df = pd.DataFrame([data])
-            else:
-                df = pd.DataFrame(data)
-            
-            st.success(f"Wczytano plik JSON: {uploaded_file.name}")
-            
-        elif file_extension == 'xml':
-            tree = ET.parse(uploaded_file)
-            root = tree.getroot()
-
-            data = []
-            for child in root:
-                row = {}
-                for elem in child:
-                    row[elem.tag] = elem.text
-                data.append(row)
-            
-            df = pd.DataFrame(data)
-            for col in df.columns:
-                try:
-                    df[col] = pd.to_numeric(df[col])
-                except (ValueError, TypeError):
-                    pass
-
-            st.success(f"Wczytano plik XML: {uploaded_file.name}")
-            
-        else:
-            st.error(f"Nieobsługiwany format pliku: {file_extension}")
-            return False
-
-        st.session_state.df = df
-
-        #st.write(f"**Wymiary:** {df.shape[0]} wierszy, {df.shape[1]} kolumn")
-        #st.dataframe(df.head())
-        
-        return True
-        
-    except Exception as e:
-        st.error(f"Błąd podczas wczytywania pliku: {str(e)}")
-        return False
+  
 df_iris = sns.load_dataset("iris")
+
+housing = fetch_openml(
+        name="house_prices",
+        as_frame=True
+        )
+df_house = housing.frame
+
 if "df" not in st.session_state:
         st.session_state.df = df_iris
 
@@ -80,6 +33,7 @@ st.markdown("**Dostępne algorytmy:**")
 col1, col2, col3 = st.columns(3)
 with col1:
     st.markdown("**Klasteryzacja**")
+    st.page_link("pages/elbow.py", label="Metoda łokcia")
     st.page_link("pages/k-means.py", label="K-means")
     st.page_link("pages/dbscan.py", label="DBSCAN")  
 with col2:
@@ -112,19 +66,7 @@ PCA to technika redukcji wymiarowości, która przekształca dane do nowego ukł
             """)
 
 st.markdown("Możesz skorzystać z wbudowanego zbioru Irys, lub wczytać własny.")
-#st.caption("Obsługiwane formaty to: csv, json oraz xml")
 
-#uploaded_file = st.file_uploader(
-#    "Wybierz plik (CSV, JSON lub XML)", 
-#    type=['csv', 'json', 'xml']
-#)
-#if uploaded_file is not None:
-#    load_file_to_dataframe(uploaded_file)
-
-#d1, d2 = st.columns(2)
-
-#with d1:
-    #b1 = st.button("Podgląd włąsnych danych")
 with st.expander("Wczytaj własne dane"):
     uploaded_file = st.file_uploader(
     "Wybierz plik (CSV, JSON lub XML)", 
@@ -132,27 +74,7 @@ with st.expander("Wczytaj własne dane"):
 )
     if uploaded_file is not None:
         load_file_to_dataframe(uploaded_file)
-#with d2:
-#b2 = st.button("Dowiedz się więcej o zbiorze Irys")
 
-#output = st.container()
-
-#with output:
- #   if b1:
- #       #uploaded_file = st.file_uploader(
- #       #    "Wybierz plik (CSV, JSON lub XML)", 
- #       #    type=['csv', 'json', 'xml']
- #       #)
- #       #
- #       if uploaded_file is not None:
- #           st.header("Podgląd danych")
- #           st.write(f"**Wymiary:** {st.session_state.df.shape[0]} wierszy, {st.session_state.df.shape[1]} kolumn")
- #           st.dataframe(st.session_state.df.head())
-#
- #       elif uploaded_file is None:
- #           st.markdown("Wgraj własne dane")
-
-    #if b2:
 with st.expander("Dowiedz się więcej o zbiorze Iris"):
      #-------------------EDA---------------------------
      #df = st.session_state.df
@@ -206,3 +128,78 @@ with st.expander("Dowiedz się więcej o zbiorze Iris"):
     ax.set_ylabel("Szerokość kielicha")
     st.pyplot(fig)
 
+with st.expander("Dowiedz się więcej o zbiorze House Prices"):
+    if st.button("Wybierz *House Prices* jako podstawowy zbiór"):
+        st.session_state.df = df_house
+
+    st.markdown("""
+    Zbiór House Prices (Ames Housing) to popularny dataset wykorzystywany
+    w uczeniu maszynowym do zadań regresji.
+    Celem jest przewidywanie ceny sprzedaży domu.
+
+    Zbiór zawiera dane dotyczące **1460 domów** sprzedanych w mieście Ames (Iowa, USA).
+
+    Dla każdej nieruchomości opisano **79 cech**, obejmujących m.in.:
+    - lokalizację (np. Neighborhood)
+    - wielkość działki i powierzchnię domu
+    - jakość i stan techniczny budynku
+    - rok budowy i modernizacji
+    - liczbę pokoi
+    - informacje o piwnicy, garażu i tarasie
+
+    Zmienną docelową jest:
+    - SalePrice — cena sprzedaży domu (w USD)
+
+    Zbiór zawiera zarówno cechy numeryczne, jak i kategoryczne,
+    a także braki danych, co czyni go dobrym przykładem do nauki
+    preprocessingu i inżynierii cech.
+                """)
+    st.header("Podgląd danych")
+
+    st.dataframe(df_house)
+
+    st.subheader("Statystyki opisowe")
+    st.write(df_house.describe())
+
+    st.subheader("Rozkład ceny sprzedaży")
+
+    fig, ax = plt.subplots()
+    sns.histplot(df_house["SalePrice"], kde=True, ax=ax)
+    ax.set_xlabel("Cena sprzedaży (USD)")
+    ax.set_ylabel("Liczba domów")
+    st.pyplot(fig)
+
+    st.header("Rozłożenie danych")
+    st.subheader("Boxplot wybranych cech")
+
+    num_features = [
+        "SalePrice",
+        "GrLivArea",
+        "TotalBsmtSF",
+        "LotArea",
+        "OverallQual"
+    ]
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+    sns.boxplot(data=df_house[num_features], orient="h", ax=ax)
+    ax.set_yticklabels([
+        "Cena sprzedaży",
+        "Powierzchnia mieszkalna",
+        "Powierzchnia piwnicy",
+        "Powierzchnia działki",
+        "Ogólna jakość"
+    ])
+    st.pyplot(fig)
+
+    st.subheader("Scatterplot: powierzchnia vs cena")
+
+    fig, ax = plt.subplots()
+    sns.scatterplot(
+        data=df_house,
+        x="GrLivArea",
+        y="SalePrice",
+        ax=ax
+    )
+    ax.set_xlabel("Powierzchnia mieszkalna (m²)")
+    ax.set_ylabel("Cena sprzedaży (USD)")
+    st.pyplot(fig)

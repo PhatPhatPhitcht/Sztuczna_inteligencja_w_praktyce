@@ -5,6 +5,7 @@ from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import accuracy_score, confusion_matrix, precision_recall_fscore_support
 import plotly.graph_objects as go
 import numpy as np
+from utils.file_loader import load_file_to_dataframe
 
 st.set_page_config(page_title="Interaktywne algorytmy uczenia maszynowego", initial_sidebar_state="collapsed")
 st.markdown("""
@@ -76,28 +77,72 @@ Poniżej znajdziesz możliwość przetestowania algorytmu. Wygeneruj swoje włas
 
 st.divider()
 
+with st.expander("Wczytaj inne dane"):
+    uploaded_file = st.file_uploader(
+    "Wybierz plik (CSV, JSON lub XML)", 
+    type=['csv', 'json', 'xml']
+)
+    if uploaded_file is not None:
+        load_file_to_dataframe(uploaded_file)
+
 with st.expander("Podgląd danych"):
     st.dataframe(st.session_state.df.head())
 
-target_column = st.selectbox("Wybierz kolumnę docelową (cel klasyfikacji):", options=df.columns.tolist())
-if target_column:
-    unique_classes = df[target_column].nunique()
+# Expander do wyboru zmiennych
+with st.expander("Wybór zmiennych do analizy"):
+    st.markdown("**Krok 1: Wybierz zmienną docelową (Y) - co chcesz przewidywać:**")
     
-    if unique_classes < 2:
-        st.error("Kolumna docelowa musi mieć co najmniej 2 klasy!")
-        st.stop()
-    elif unique_classes > 10:
-        st.warning(f"Kolumna ma {unique_classes} klas. Dla lepszej wizualizacji zaleca się mniej klas.")
+    target_column = st.selectbox(
+        "Kolumna docelowa (zmienna Y):",
+        options=df.columns.tolist(),
+        help="Wybierz kolumnę, którą model będzie przewidywał"
+    )
+    
+    if target_column:
+        # Walidacja zmiennej docelowej
+        unique_classes = df[target_column].nunique()
+        null_count = df[target_column].isnull().sum()
+        
+        if null_count > 0:
+            st.error(f"Kolumna docelowa zawiera {null_count} brakujących wartości! Wybierz inną kolumnę lub uzupełnij dane.")
+            st.stop()
+        
+        if unique_classes < 2:
+            st.error("Kolumna docelowa musi mieć co najmniej 2 różne klasy!")
+            st.stop()
+        elif unique_classes > 20:
+            st.error(f"Kolumna ma {unique_classes} klas. To zbyt wiele dla klasyfikacji. Wybierz kolumnę z mniejszą liczbą klas (maksymalnie 20).")
+            st.stop()
+        elif unique_classes > 10:
+            st.warning(f"Kolumna ma {unique_classes} klas. Dla lepszej wizualizacji i wydajności zaleca się mniej klas (2-10).")
+        else:
+            st.success(f"Kolumna docelowa ma {unique_classes} klas - odpowiednie do klasyfikacji")
+        
+        st.markdown("**Krok 2: Wybierz cechy (X) - zmienne użyte do predykcji:**")
+        st.info("Wybierz zmienne numeryczne, które według Ciebie mogą pomóc w przewidywaniu zmiennej docelowej")
+        
+        available_features = [col for col in df.columns if col != target_column]
+        numeric_features = df[available_features].select_dtypes(include=['number']).columns.tolist()
+        
+        if len(numeric_features) == 0:
+            st.error("Brak kolumn numerycznych do użycia jako cechy! Drzewo decyzyjne wymaga cech numerycznych.")
+            st.stop()
+        
+        selected_features = st.multiselect(
+            "Dostępne cechy numeryczne:",
+            options=numeric_features,
+            default=numeric_features[:min(5, len(numeric_features))],
+            help="Wybierz co najmniej 1 cechę"
+        )
+        
+        if len(selected_features) == 0:
+            st.warning("Wybierz co najmniej 1 cechę do analizy!")
+            st.stop()
+        else:
+            st.success(f"Wybrano {len(selected_features)} cech")
 
-    feature_columns = [col for col in df.columns if col != target_column]
-
-    numeric_features = df[feature_columns].select_dtypes(include=['number']).columns.tolist()
-
-    if len(numeric_features) == 0:
-        st.error("Brak kolumn numerycznych do użycia jako cechy! Drzewo decyzyjne wymaga cech numerycznych.")
-        st.stop()
-
-    st.markdown("**Parametry**")
+if target_column and len(selected_features) > 0:
+    st.markdown("**Parametry modelu**")
 
     col1, col2, col3 = st.columns(3)
 
@@ -124,14 +169,36 @@ if target_column:
             max_value=20,
             value=2,
         )
+    
+    st.markdown("**Walidacja krzyżowa**")
+    cv_folds = st.slider(
+        "Liczba podziałów (folds) dla walidacji krzyżowej",
+        min_value=2,
+        max_value=10,
+        value=5,
+        help="Liczba części, na które zostanie podzielony zbiór danych podczas walidacji krzyżowej"
+    )
 
     if st.button("Trenuj model", type="primary"):
         try:
-            X = df[numeric_features]
-            y = df[target_column]
+            # Przygotowanie danych
+            X = df[selected_features].copy()
+            y = df[target_column].copy()
+            
+            # Sprawdzenie braków w cechach
+            if X.isnull().sum().sum() > 0:
+                st.error("Wybrane cechy zawierają brakujące wartości! Usuń wiersze z brakami lub wybierz inne cechy.")
+                missing_features = X.columns[X.isnull().any()].tolist()
+                st.write(f"Cechy z brakami: {', '.join(missing_features)}")
+                st.stop()
+            
+            # Sprawdzenie czy są jakiekolwiek dane
+            if len(X) < 10:
+                st.error("Zbyt mało danych do trenowania modelu! Potrzeba co najmniej 10 próbek.")
+                st.stop()
 
             X_train, X_test, y_train, y_test = train_test_split(
-                X, y, test_size=0.3, random_state=42
+                X, y, test_size=0.3, random_state=42, stratify=y
             )
 
             model = DecisionTreeClassifier(
@@ -144,16 +211,22 @@ if target_column:
             with st.spinner("Zaczekaj aż model się wytrenuje..."):
                 model.fit(X_train, y_train)
                 
-                cv_scores = cross_val_score(model, X, y, cv=5, scoring='accuracy')
+                # Walidacja - użyj wybranej liczby foldów, ale nie więcej niż połowa danych
+                actual_cv_folds = min(cv_folds, len(X)//2)
+                if actual_cv_folds < cv_folds:
+                    st.warning(f"Zbyt mało danych dla {cv_folds} foldów. Użyto {actual_cv_folds} foldów.")
+                
+                cv_scores = cross_val_score(model, X, y, cv=actual_cv_folds, scoring='accuracy')
 
-            st.session_state.decision_tree_model = model
-            st.session_state.model_features = numeric_features
-            st.session_state.target_column = target_column
-            st.session_state.X_test = X_test
-            st.session_state.y_test = y_test
-            st.session_state.X_train = X_train
-            st.session_state.y_train = y_train
-            st.session_state.cv_scores = cv_scores
+            # Zapisanie do session_state z prefiksem dt_ (decision tree)
+            st.session_state.dt_model = model
+            st.session_state.dt_features = selected_features
+            st.session_state.dt_target_column = target_column
+            st.session_state.dt_X_test = X_test
+            st.session_state.dt_y_test = y_test
+            st.session_state.dt_X_train = X_train
+            st.session_state.dt_y_train = y_train
+            st.session_state.dt_cv_scores = cv_scores
 
             # Metryki
             y_pred = model.predict(X_test)
@@ -161,15 +234,19 @@ if target_column:
 
             st.success(f"Model wytrenowany! Dokładność na zbiorze testowym: {accuracy:.2%}")
 
+        except ValueError as ve:
+            st.error(f"Błąd wartości: {str(ve)}")
+            st.info("Sprawdź czy wybrana zmienna docelowa nadaje się do klasyfikacji.")
         except Exception as e:
             st.error(f"Błąd podczas treningu: {str(e)}")
+            st.info("Spróbuj wybrać inne cechy lub zmienić parametry modelu.")
 
-    if 'decision_tree_model' in st.session_state:
+    if 'dt_model' in st.session_state:
         st.write("---")
 
-        model = st.session_state.decision_tree_model
-        features = st.session_state.model_features
-        target = st.session_state.target_column
+        model = st.session_state.dt_model
+        features = st.session_state.dt_features
+        target = st.session_state.dt_target_column
         
         # Drzewa w Plotly
         def create_plotly_tree(model, feature_names, class_names):
@@ -276,7 +353,9 @@ if target_column:
         fig_plotly = create_plotly_tree(model, features, [str(c) for c in model.classes_])
         st.plotly_chart(fig_plotly, use_container_width=True)
 
-        st.markdown("""
+        st.markdown(f"""
+        **Model używa {len(features)} cech:** {', '.join(features)}
+        
         Wyjaśnijmy metryki które możesz zobaczyć w węzłach:
 
         **Gini** to  współczynnik Giniego, czyli miara zanieczyszczenia (impurity) węzła, która pokazuje, czy w danym węźle drzewa znajdują się próbki należące do różnych klas jednocześnie . Dla wartość  0 oznacza węzeł czysty (wszystkie próbki należą do jednej klasy), a Gini maksymalne (np. 0.5 dla 2 klas) oznacza że nie ma jednoznacznej odpowiedzi, którą klasę ten węzeł reprezentuje.
@@ -289,15 +368,15 @@ if target_column:
         """)
         
         # Metryki modelu
-        st.markdown("---")
+        st.divider()
         st.markdown("**Metryki Modelu**")
         
-        y_test = st.session_state.y_test
-        y_pred = model.predict(st.session_state.X_test)
+        y_test = st.session_state.dt_y_test
+        y_pred = model.predict(st.session_state.dt_X_test)
         
         # Accuracy i walidacja krzyżowa
         accuracy = accuracy_score(y_test, y_pred)
-        cv_scores = st.session_state.cv_scores
+        cv_scores = st.session_state.dt_cv_scores
         
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -307,7 +386,7 @@ if target_column:
         with col3:
             st.metric("Odchylenie std. (CV)", f"{cv_scores.std():.3f}")
         
-        st.markdown(f"**Wyniki walidacji krzyżowej (5-fold):** {', '.join([f'{score:.2%}' for score in cv_scores])}")
+        st.markdown(f"**Wyniki walidacji krzyżowej ({len(cv_scores)}-fold):** {', '.join([f'{score:.2%}' for score in cv_scores])}")
         st.markdown("Walidacja krzyżowa pokazuje, jak stabilny jest model na różnych podzbiorach danych. Niskie odchylenie standardowe oznacza, że model jest stabilny.")
         
         # Macierz pomyłek
@@ -354,7 +433,7 @@ if target_column:
         - **F1-Score**: Średnia harmoniczna precision i recall - ogólna miara jakości dla każdej klasy
         """)
 #---------------------------------------Testowanie-------------------------------------------
-        st.subheader("Testowanie modelu")
+        st.markdown("**Testowanie modelu**")
         st.markdown("Wprowadź wartości dla nowej próbki:")
 
         input_data = {}
@@ -378,86 +457,91 @@ if target_column:
                     max_value=max_val,
                     value=mean_val,
                     step=step,
-                    key=f"test_input_{feature}"
+                    key=f"dt_test_input_{feature}"
                 )
 
         if st.button("Klasyfikuj próbkę"):
-            input_df = pd.DataFrame([input_data])
+            try:
+                input_df = pd.DataFrame([input_data])
 
-            prediction = model.predict(input_df)[0]
-            prediction_proba = model.predict_proba(input_df)[0]
+                prediction = model.predict(input_df)[0]
+                prediction_proba = model.predict_proba(input_df)[0]
 
-            st.markdown("**Wynik predykcji:**")
-            st.success(f"Klasa: {prediction}")
-            
-            # Ścieżka decyzyjna
-            st.markdown("**Ścieżka decyzyjna przez drzewo:**")
-            
-            tree = model.tree_
-            node = 0
-            path_steps = []
-            
-            sample = input_df.values[0]
-            
-            while tree.feature[node] != -2:  # Dopóki nie dojdzie do liścia powtarza
-                feature_idx = tree.feature[node]
-                feature_name = features[feature_idx]
-                threshold = tree.threshold[node]
-                feature_value = sample[feature_idx]
+                st.markdown("**Wynik predykcji:**")
+                st.success(f"Klasa: {prediction}")
                 
-                if feature_value <= threshold:
-                    decision = "TAK"
-                    next_node = tree.children_left[node]
-                else:
-                    decision = "NIE"
-                    next_node = tree.children_right[node]
+                # Ścieżka decyzyjna
+                st.markdown("**Ścieżka decyzyjna przez drzewo:**")
                 
+                tree = model.tree_
+                node = 0
+                path_steps = []
+                
+                sample = input_df.values[0]
+                
+                while tree.feature[node] != -2:  # Dopóki nie dojdzie do liścia powtarza
+                    feature_idx = tree.feature[node]
+                    feature_name = features[feature_idx]
+                    threshold = tree.threshold[node]
+                    feature_value = sample[feature_idx]
+                    
+                    if feature_value <= threshold:
+                        decision = "TAK"
+                        next_node = tree.children_left[node]
+                    else:
+                        decision = "NIE"
+                        next_node = tree.children_right[node]
+                    
+                    gini = tree.impurity[node]
+                    n_samples = tree.n_node_samples[node]
+                    value = tree.value[node][0]
+                    
+                    path_steps.append({
+                        'Węzeł': f"N{node}",
+                        'Pytanie': f"{feature_name} <= {threshold:.2f}?",
+                        'Wartość cechy': f"{feature_value:.2f}",
+                        'Odpowiedź': decision,
+                        'Gini': f"{gini:.3f}",
+                        'Próbki': n_samples
+                    })
+                    
+                    node = next_node
+                
+                # Ostatni węzeł (liść)
                 gini = tree.impurity[node]
                 n_samples = tree.n_node_samples[node]
                 value = tree.value[node][0]
+                class_idx = np.argmax(value)
+                final_class = model.classes_[class_idx]
                 
                 path_steps.append({
-                    'Węzeł': f"N{node}",
-                    'Pytanie': f"{feature_name} <= {threshold:.2f}?",
-                    'Wartość cechy': f"{feature_value:.2f}",
-                    'Odpowiedź': decision,
+                    'Węzeł': f"N{node} (LIŚĆ)",
+                    'Pytanie': f"Finalna decyzja",
+                    'Wartość cechy': "-",
+                    'Odpowiedź': f"Klasa: {final_class}",
                     'Gini': f"{gini:.3f}",
                     'Próbki': n_samples
                 })
                 
-                node = next_node
-            
-            # Ostatni węzeł (liść)
-            gini = tree.impurity[node]
-            n_samples = tree.n_node_samples[node]
-            value = tree.value[node][0]
-            class_idx = np.argmax(value)
-            final_class = model.classes_[class_idx]
-            
-            path_steps.append({
-                'Węzeł': f"N{node} (LIŚĆ)",
-                'Pytanie': f"Finalna decyzja",
-                'Wartość cechy': "-",
-                'Odpowiedź': f"Klasa: {final_class}",
-                'Gini': f"{gini:.3f}",
-                'Próbki': n_samples
-            })
-            
-            path_df = pd.DataFrame(path_steps)
-            st.dataframe(path_df, hide_index=True, use_container_width=True)
-            
-            st.markdown(f"""
-            **Interpretacja ścieżki:**
-            Model przeszedł przez {len(path_steps)-1} węzłów decyzyjnych, 
-            odpowiadając na pytania o wartości cech, aż dotarł do liścia z predykcją: **{prediction}**.
-            
-            Wartość Gini w końcowym węźle ({path_steps[-1]['Gini']}) pokazuje pewność decyzji - 
-            im bliższa 0, tym bardziej jednoznaczna klasyfikacja.
-            """)
-            
-            st.markdown("**Prawdopodobieństwa dla każdej klasy:**")
-            proba_df = pd.DataFrame({
-                'Klasa': model.classes_,
-                'Prawdopodobieństwo': [f"{p:.2%}" for p in prediction_proba]
-            })
-            st.dataframe(proba_df, hide_index=True, use_container_width=True)
+                path_df = pd.DataFrame(path_steps)
+                st.dataframe(path_df, hide_index=True, use_container_width=True)
+                
+                st.markdown(f"""
+                **Interpretacja ścieżki:**
+                Model przeszedł przez {len(path_steps)-1} węzłów decyzyjnych, 
+                odpowiadając na pytania o wartości cech, aż dotarł do liścia z predykcją: **{prediction}**.
+                
+                Wartość Gini w końcowym węźle ({path_steps[-1]['Gini']}) pokazuje pewność decyzji - 
+                im bliższa 0, tym bardziej jednoznaczna klasyfikacja.
+                """)
+                
+                st.markdown("**Prawdopodobieństwa dla każdej klasy:**")
+                proba_df = pd.DataFrame({
+                    'Klasa': model.classes_,
+                    'Prawdopodobieństwo': [f"{p:.2%}" for p in prediction_proba]
+                })
+                st.dataframe(proba_df, hide_index=True, use_container_width=True)
+                
+            except Exception as e:
+                st.error(f"Błąd podczas klasyfikacji: {str(e)}")
+                st.info("Sprawdź czy wszystkie wartości są poprawne.")

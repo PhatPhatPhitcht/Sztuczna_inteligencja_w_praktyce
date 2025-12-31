@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 import streamlit as st
+from utils.file_loader import load_file_to_dataframe
 
 st.set_page_config(page_title="Interaktywne algorytmy uczenia maszynowego", initial_sidebar_state="collapsed")
 st.markdown("""
@@ -16,20 +17,10 @@ if 'df' not in st.session_state:
     st.error("Brak danych! Najpierw załaduj stronę główną")
     st.stop()
 
-
 if 'df' in st.session_state:
     df = st.session_state.df
-else:
-    st.warning("Brak danych w session_state. Użyj przykładowych danych Iris.")
-    from sklearn.datasets import load_iris
-    iris = load_iris()
-    df = pd.DataFrame(iris.data, columns=iris.feature_names)
 
 data = df.select_dtypes(include=[np.number]).dropna()
-scaler = StandardScaler()
-data_scaled = scaler.fit_transform(data)
-pca = PCA(n_components=2)
-data_2d = pca.fit_transform(data_scaled)
 
 class DBSCANIterative:
     def __init__(self, eps=0.5, min_samples=5):
@@ -142,7 +133,7 @@ st.markdown("""
             że klastry mają kształt wypukły. Centralnym pojęciem DBSCAN jest **próbka rdzeniowa** (ang. \textsl{core sample}), czyli próbka 
             znajdująca się w obszarze o dużej gęstości. Klaster stanowi zatem zbiór próbek rdzeniowych leżących blisko siebie 
             (według wybranej miary odległości) oraz zbiór próbek nierdzeniowych, które są sąsiadami próbek rdzeniowych, lecz same 
-            nimi nie są. Algorytm ma dwa parametry: \textbf{min_samples} i \textbf{eps} które formalnie definiują, co oznacza „gęstość”. Wyższe 
+            nimi nie są. Algorytm ma dwa parametry: \textbf{min_samples} i \textbf{eps} które formalnie definiują, co oznacza „gęstość". Wyższe 
             min_samples lub niższe eps oznaczają większą wymaganą gęstość do utworzenia klastra.
 
 Bardziej formalnie, **próbka rdzeniowa** to taka próbka, dla której istnieje co najmniej min_samples innych próbek w odległości eps,             uznawanych za jej sąsiadów. Oznacza to, że próbka ta znajduje się w gęstym obszarze przestrzeni. Klaster jest zbiorem             próbek rdzeniowych, które można uzyskać, rekurencyjnie biorąc próbkę rdzeniową, znajdując wszystkich jej sąsiadów             będących próbkami rdzeniowymi, a następnie sąsiadów tych próbek rdzeniowych itd. Klaster zawiera również próbki             nierdzeniowe — są to próbki będące sąsiadami próbek rdzeniowych, lecz same niebędące próbkami rdzeniowymi.             Intuicyjnie leżą one na obrzeżach klastra.
@@ -153,7 +144,7 @@ Każda próbka rdzeniowa należy do klastra. Próbka, która nie jest próbką r
 Parametr **min_samples** wpływa głównie na odporność algorytmu na szum — w przypadku dużych i zaszumionych zbiorów danych często 
             warto go zwiększyć. Natomiast parametr eps jest kluczowy i zwykle nie powinien pozostawać na wartości domyślnej. 
             Określa on lokalne sąsiedztwo punktów: zbyt mała wartość sprawia, że większość danych pozostaje niesklasteryzowana 
-            (oznaczona jako -1, czyli „szum”), a zbyt duża prowadzi do łączenia pobliskich klastrów w jeden, a ostatecznie może 
+            (oznaczona jako -1, czyli „szum"), a zbyt duża prowadzi do łączenia pobliskich klastrów w jeden, a ostatecznie może 
             spowodować, że cały zbiór zostanie zwrócony jako pojedynczy klaster.
 
 [Dowiedz się więcej:](https://scikit-learn.org/stable/modules/clustering.html#dbscan)            
@@ -165,6 +156,52 @@ Poniżej możesz zobaczyć zmiany przy znajdywaniu klastrów przy różnym dobor
            
             """)
 st.divider()
+
+with st.expander("Wczytaj inne dane"):
+    uploaded_file = st.file_uploader(
+    "Wybierz plik (CSV, JSON lub XML)", 
+    type=['csv', 'json', 'xml']
+)
+    if uploaded_file is not None:
+        load_file_to_dataframe(uploaded_file)
+
+with st.expander("Podgląd danych"):
+    st.dataframe(st.session_state.df.head())
+
+# Expander do wyboru zmiennych
+with st.expander("Wybór zmiennych do analizy"):
+    st.markdown("**Wybierz zmienne, które chcesz użyć do klasteryzacji:**")
+    st.info("Jeśli wybierzesz więcej niż 2 zmienne, automatycznie zostanie zastosowane PCA do redukcji wymiarów.")
+    
+    available_columns = data.columns.tolist()
+    selected_columns = st.multiselect(
+        "Dostępne zmienne numeryczne:",
+        options=available_columns,
+        default=available_columns[:min(2, len(available_columns))],
+        help="Wybierz co najmniej 2 zmienne"
+    )
+    
+    if len(selected_columns) < 2:
+        st.warning("Wybierz co najmniej 2 zmienne do analizy!")
+        st.stop()
+
+data_selected = data[selected_columns]
+scaler = StandardScaler()
+data_scaled = scaler.fit_transform(data_selected)
+
+if len(selected_columns) > 2:
+    pca = PCA(n_components=2)
+    data_2d = pca.fit_transform(data_scaled)
+    explained_variance = pca.explained_variance_ratio_
+    use_pca = True
+    st.info(f"Zastosowano PCA: z {len(selected_columns)} zmiennych do 2 głównych składowych")
+elif len(selected_columns) == 2:
+    data_2d = data_scaled
+    explained_variance = [1.0, 1.0]
+    use_pca = False
+else:
+    st.error("Wybierz co najmniej 2 zmienne!")
+    st.stop()
 
 col1, col2, col3 = st.columns(3)
 with col1:
@@ -265,7 +302,19 @@ if st.button("Uruchom DBSCAN", type="primary"):
                                linestyle='--', linewidth=2, alpha=0.6)
             ax.add_patch(circle)
         
-        ax.set_title(f'DBSCAN - Krok {iteration+1}\n{description}', 
+        # Etykiety osi zależnie od tego czy użyto PCA
+        if use_pca:
+            ax.set_xlabel(f'PC1 ({explained_variance[0]*100:.1f}% wariancji)')
+            ax.set_ylabel(f'PC2 ({explained_variance[1]*100:.1f}% wariancji)')
+        else:
+            ax.set_xlabel(selected_columns[0])
+            ax.set_ylabel(selected_columns[1])
+        
+        variables_text = f"Zmienne: {', '.join(selected_columns)}"
+        if use_pca:
+            variables_text += f" (PCA)"
+        
+        ax.set_title(f'DBSCAN - Krok {iteration+1}\n{description}\n{variables_text}', 
                     fontsize=14, fontweight='bold', pad=15)
         
         # Legenda
@@ -280,3 +329,10 @@ if st.button("Uruchom DBSCAN", type="primary"):
         plt.tight_layout()
         st.pyplot(fig)
         plt.close(fig)
+    
+    if use_pca:
+        st.markdown(f"""
+        **Procent wariancji** oznacza, że ten wymiar zachowuje taką ilość informacji o zróżnicowaniu danych. 
+        PC1 + PC2 razem zachowują {(explained_variance[0] + explained_variance[1])*100:.1f}% całkowitej wariancji z oryginalnych {len(selected_columns)} zmiennych.
+        Im bliżej 100%, tym lepiej zachowana struktura danych po redukcji wymiarów.
+        """)

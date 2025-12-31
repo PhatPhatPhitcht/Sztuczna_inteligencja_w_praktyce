@@ -1,11 +1,12 @@
 import streamlit as st
 import pandas as pd
 from sklearn.tree import DecisionTreeRegressor
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-import matplotlib.pyplot as plt
+from sklearn.preprocessing import LabelEncoder
 import numpy as np
 import plotly.graph_objects as go
+from utils.file_loader import load_file_to_dataframe
+from sklearn.datasets import fetch_openml
 
 st.set_page_config(page_title="Interaktywne algorytmy uczenia maszynowego", initial_sidebar_state="collapsed")
 st.markdown("""
@@ -22,20 +23,20 @@ if 'df' not in st.session_state:
     st.error("Brak danych! Najpierw załaduj stronę główną")
     st.stop()
 
-df = st.session_state.df
+df = st.session_state.df.copy()
 
 st.markdown("""
 Regresyjne drzewa decyzyjne są atrakcyjnymi modelami, jeśli zależy nam na interpretowalności przewidywań wartości ciągłych. Podobnie jak w klasyfikacji, możemy myśleć o tym modelu jako o metodzie dzielenia danych poprzez podejmowanie decyzji na podstawie zadawania serii pytań, z tą różnicą że końcowym wynikiem jest przewidywana wartość numeryczna, a nie klasa.
 
 **Struktura Drzewa**
 
--**Korzeń** (Root Node): Najwyższy węzeł w drzewie, reprezentujący całą populację danych. To punkt startowy, od którego rozpoczyna się podział.
+- **Korzeń** (Root Node): Najwyższy węzeł w drzewie, reprezentujący całą populację danych. To punkt startowy, od którego rozpoczyna się podział.
 
--**Węzły wewnętrzne** (Internal Nodes): Punkty decyzyjne w drzewie. Każdy węzeł wewnętrzny zawiera pytanie o konkretną cechę danych i ma co najmniej dwie gałęzie wychodzące, reprezentujące możliwe odpowiedzi.
+- **Węzły wewnętrzne** (Internal Nodes): Punkty decyzyjne w drzewie. Każdy węzeł wewnętrzny zawiera pytanie o konkretną cechę danych i ma co najmniej dwie gałęzie wychodzące, reprezentujące możliwe odpowiedzi.
 
--**Liście** (Leaf Nodes): Końcowe węzły drzewa, które nie mają dalszych podziałów. Każdy liść reprezentuje przewidywaną wartość numeryczną, będącą zazwyczaj średnią wartości ze zbioru treningowego, które trafiły do tego liścia.
+- **Liście** (Leaf Nodes): Końcowe węzły drzewa, które nie mają dalszych podziałów. Każdy liść reprezentuje przewidywaną wartość numeryczną, będącą zazwyczaj średnią wartości ze zbioru treningowego, które trafiły do tego liścia.
 
--**Gałęzie** (Branches): Połączenia między węzłami, reprezentujące możliwe wartości cechy lub wynik testu warunkowego.
+- **Gałęzie** (Branches): Połączenia między węzłami, reprezentujące możliwe wartości cechy lub wynik testu warunkowego.
 
 **Działanie algorytmu**
 
@@ -63,6 +64,32 @@ Drzewo "zapamiętuje" dane treningowe zbyt dokładnie, włączając w to szum i 
 - Przycinanie wstępne (pre-pruning): Ograniczanie wartości parametrów max_depth, min_samples_split i min_samples_leaf.
 - Przycinanie końcowe (post-pruning): Pozwalamy drzewu urosnąć do pełnego rozmiaru, a następnie usuwamy części, które nie poprawiają wydajności na zbiorze walidacyjnym.
 
+**Metryki jakości modelu:**
+
+- **R² (Coefficient of Determination)** - Współczynnik determinacji
+  
+  $$R^2 = 1 - \\frac{\\sum_{i=1}^{n}(y_i - \\hat{y}_i)^2}{\\sum_{i=1}^{n}(y_i - \\bar{y})^2}$$
+  
+  Pokazuje, jaki procent zmienności zmiennej zależnej jest wyjaśniony przez model. Wartości bliskie 1 oznaczają dobre dopasowanie.
+
+- **MSE (Mean Squared Error)** - Średni błąd kwadratowy
+  
+  $$MSE = \\frac{1}{n}\\sum_{i=1}^{n}(y_i - \\hat{y}_i)^2$$
+  
+  Średnia kwadratów różnic między wartościami rzeczywistymi a przewidywanymi. Penalizuje duże błędy.
+
+- **RMSE (Root Mean Squared Error)** - Pierwiastek ze średniego błędu kwadratowego
+  
+  $$RMSE = \\sqrt{MSE} = \\sqrt{\\frac{1}{n}\\sum_{i=1}^{n}(y_i - \\hat{y}_i)^2}$$
+  
+  Jest w tych samych jednostkach co zmienna zależna, co ułatwia interpretację.
+
+- **MAE (Mean Absolute Error)** - Średni błąd bezwzględny
+  
+  $$MAE = \\frac{1}{n}\\sum_{i=1}^{n}|y_i - \\hat{y}_i|$$
+  
+  Średnia wartość bezwzględna różnic między wartościami rzeczywistymi a przewidywanymi.
+
 [Dowiedz się więcej](https://scikit-learn.org/stable/modules/generated/sklearn.tree.DecisionTreeRegressor.html)
 
 [Wikipedia](https://en.wikipedia.org/wiki/Decision_tree_learning)
@@ -72,10 +99,151 @@ Poniżej znajdziesz możliwość przetestowania algorytmu. Wygeneruj swoje włas
 
 st.divider()
 
+with st.expander("Wczytaj inne dane"):
+    st.markdown("""
+    Do regresji zalecam użycie zbioru *House Prices (Ames Housing)*
+        """)
+    if st.button("Wczytaj *House Prices*", type="secondary"):
+        housing = fetch_openml(
+        name="house_prices",
+        as_frame=True
+        )
+        st.session_state.df = housing.frame
+        df = housing.frame
+
+    uploaded_file = st.file_uploader(
+    "Wybierz plik (CSV, JSON lub XML)", 
+    type=['csv', 'json', 'xml']
+)
+    if uploaded_file is not None:
+        load_file_to_dataframe(uploaded_file)
+
 with st.expander("Podgląd danych"):
     st.dataframe(st.session_state.df.head())
 
-target_column = st.selectbox("Wybierz kolumnę docelową (wartość do przewidzenia):", options=df.columns.tolist())
+# Inicjalizacja session_state z prefiksem dla drzewa decyzyjnego regresji
+for key, default in {
+    "dtr_model": None,
+    "dtr_features": None,
+    "dtr_target": None,
+    "dtr_is_trained": False,
+    "dtr_label_encoders": {},
+    "dtr_y_pred": None,
+    "dtr_y": None
+}.items():
+    if key not in st.session_state:
+        st.session_state[key] = default
+
+# Wybór zmiennej docelowej
+numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+
+if len(numeric_cols) < 1:
+    st.error("Wymagana jest co najmniej 1 kolumna numeryczna jako zmienna docelowa.")
+    st.stop()
+
+
+# Expander do wyboru zmiennych niezależnych
+with st.expander("Wybór zmiennych", expanded=False):
+    st.markdown("""
+    **Wybierz zmienne zależne (etykiety) i niezależne (cechy), które będą użyte do budowy drzewa decyzyjnego.**
+    
+    - Zmienne tekstowe (kategoryczne) zostaną automatycznie zakodowane numerycznie.
+    - Wybierz cechy, które Twoim zdaniem mogą wpływać na wartość docelową.
+    """)
+    
+    target_column = st.selectbox(
+    "Wybierz zmienną docelową (Y) - wartość do przewidzenia",
+    numeric_cols,
+    index=numeric_cols.index(st.session_state.dtr_target)
+    if st.session_state.dtr_target in numeric_cols else 0
+    )
+
+    available_features = [c for c in df.columns if c != target_column]
+    
+    selected_features = st.multiselect(
+        "Wybierz zmienne niezależne (X)",
+        available_features,
+        default=available_features if len(available_features) <= 5 else available_features[:3]
+    )
+    
+    if len(selected_features) == 0:
+        st.warning("Proszę wybrać co najmniej jedną zmienną niezależną.")
+
+# Macierz korelacji
+if len(selected_features) > 0:
+    with st.expander("Macierz korelacji"):
+        try:
+            corr_df = df[selected_features + [target_column]].copy()
+            
+            temp_encoders = {}
+            for col in corr_df.columns:
+                if corr_df[col].dtype == 'object':
+                    le = LabelEncoder()
+                    corr_df[col] = le.fit_transform(corr_df[col].astype(str))
+                    temp_encoders[col] = le
+            
+            correlation_matrix = corr_df.corr()
+            
+            fig_corr = go.Figure(data=go.Heatmap(
+                z=correlation_matrix.values,
+                x=correlation_matrix.columns,
+                y=correlation_matrix.columns,
+                colorscale='RdBu',
+                zmid=0,
+                text=correlation_matrix.values,
+                texttemplate='%{text:.2f}',
+                textfont={"size": 10},
+                colorbar=dict(title="Korelacja")
+            ))
+            
+            fig_corr.update_layout(
+                title='Macierz korelacji między zmiennymi',
+                xaxis_title="Zmienne",
+                yaxis_title="Zmienne",
+                height=500,
+                width=700
+            )
+            
+            st.plotly_chart(fig_corr, use_container_width=True)
+            
+            st.markdown("""
+            **Interpretacja:**
+            - Wartości bliskie **1** (czerwone) - silna korelacja dodatnia
+            - Wartości bliskie **-1** (niebieskie) - silna korelacja ujemna
+            - Wartości bliskie **0** (białe) - brak korelacji liniowej
+            
+            Uwaga: Drzewa decyzyjne mogą uchwycić nieliniowe zależności, których nie widać w macierzy korelacji.
+            """)
+        except Exception as e:
+            st.error(f"Nie udało się wygenerować macierzy korelacji: {str(e)}")
+
+st.markdown("**Parametry hiperparametrów drzewa**")
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    max_depth = st.slider(
+        "max_depth",
+        min_value=1,
+        max_value=20,
+        value=5,
+    )
+
+with col2:
+    min_samples_leaf = st.slider(
+        "min_samples_leaf",
+        min_value=1,
+        max_value=20,
+        value=1,
+    )
+
+with col3:
+    min_samples_split = st.slider(
+        "min_samples_split",
+        min_value=2,
+        max_value=20,
+        value=2,
+    )
 
 def create_interactive_tree(model, feature_names):
     """Tworzy interaktywną wizualizację drzewa decyzyjnego przy użyciu Plotly"""
@@ -111,7 +279,6 @@ def create_interactive_tree(model, feature_names):
         
         node_info = get_node_info(node_id)
         
-        # Normalizacja koloru na podstawie wartości
         nodes = [{
             'id': node_id,
             'x': x,
@@ -122,17 +289,14 @@ def create_interactive_tree(model, feature_names):
         edges_x = []
         edges_y = []
         
-        # Lewe dziecko
         left_child = tree.children_left[node_id]
         if left_child != -1:
             left_x = x - x_offset / (2 ** level)
             left_y = y - 0.15
             
-            # Dodaj krawędź
             edges_x.extend([x, left_x, None])
             edges_y.extend([y, left_y, None])
             
-            # Rekurencyjnie dodaj dzieci
             left_nodes, left_edges_x, left_edges_y = build_tree_layout(
                 left_child, left_x, left_y, level + 1, x_offset
             )
@@ -140,17 +304,14 @@ def create_interactive_tree(model, feature_names):
             edges_x.extend(left_edges_x)
             edges_y.extend(left_edges_y)
         
-        # Prawe dziecko
         right_child = tree.children_right[node_id]
         if right_child != -1:
             right_x = x + x_offset / (2 ** level)
             right_y = y - 0.15
             
-            # Dodaj krawędź
             edges_x.extend([x, right_x, None])
             edges_y.extend([y, right_y, None])
             
-            # Rekurencyjnie dodaj dzieci
             right_nodes, right_edges_x, right_edges_y = build_tree_layout(
                 right_child, right_x, right_y, level + 1, x_offset
             )
@@ -160,20 +321,16 @@ def create_interactive_tree(model, feature_names):
         
         return nodes, edges_x, edges_y
     
-    # Zbuduj layout drzewa
     nodes, edges_x, edges_y = build_tree_layout()
     
-    # Normalizuj wartości dla kolorowania
     values = [n['info']['value'] for n in nodes]
     min_val, max_val = min(values), max(values)
     value_range = max_val - min_val if max_val > min_val else 1
     
-    # Przygotuj dane dla węzłów
     node_x = [n['x'] for n in nodes]
     node_y = [n['y'] for n in nodes]
     node_colors = [(n['info']['value'] - min_val) / value_range for n in nodes]
     
-    # Przygotuj teksty dla tooltipów
     hover_texts = []
     for n in nodes:
         info = n['info']
@@ -186,10 +343,8 @@ def create_interactive_tree(model, feature_names):
         )
         hover_texts.append(hover_text)
     
-    # Utworzenie wykresu
     fig = go.Figure()
     
-    # Dodaj krawędzie
     fig.add_trace(go.Scatter(
         x=edges_x,
         y=edges_y,
@@ -199,7 +354,6 @@ def create_interactive_tree(model, feature_names):
         showlegend=False
     ))
     
-    # Dodaj węzły
     fig.add_trace(go.Scatter(
         x=node_x,
         y=node_y,
@@ -226,7 +380,6 @@ def create_interactive_tree(model, feature_names):
         showlegend=False
     ))
     
-    # Konfiguracja layoutu
     fig.update_layout(
         title={
             'text': "Interaktywna wizualizacja drzewa decyzyjnego<br><sub>Kliknij i przeciągnij aby przesunąć | Przewiń aby zoomować | Najedź na węzeł aby zobaczyć szczegóły</sub>",
@@ -244,230 +397,187 @@ def create_interactive_tree(model, feature_names):
     
     return fig
 
-if target_column:
-    # Sprawdź czy kolumna jest numeryczna
-    if not pd.api.types.is_numeric_dtype(df[target_column]):
-        st.error("Kolumna docelowa musi być numeryczna dla regresji!")
-        st.stop()
+if st.button("Trenuj model", type="primary") and len(selected_features) > 0:
+    try:
+        X = df[selected_features].copy()
+        y = df[target_column].copy()
+        
+        if not pd.api.types.is_numeric_dtype(y):
+            st.error(f"Zmienna docelowa '{target_column}' musi być numeryczna dla regresji!")
+            st.stop()
+        
+        if y.isna().any():
+            st.warning(f"Usunięto {y.isna().sum()} wierszy z brakującymi wartościami w zmiennej docelowej.")
+            valid_indices = ~y.isna()
+            X = X[valid_indices]
+            y = y[valid_indices]
+        
+        label_encoders = {}
+        for col in X.columns:
+            if X[col].dtype == 'object':
+                le = LabelEncoder()
+                X[col] = le.fit_transform(X[col].astype(str))
+                label_encoders[col] = le
+        
+        if X.isna().any().any():
+            st.warning(f"Uzupełniono brakujące wartości w zmiennych niezależnych medianą.")
+            X = X.fillna(X.median())
+        
+        model = DecisionTreeRegressor(
+            max_depth=max_depth,
+            min_samples_leaf=min_samples_leaf,
+            min_samples_split=min_samples_split,
+            random_state=42
+        )
+
+        with st.spinner("Zaczekaj aż model się wytrenuje..."):
+            model.fit(X, y)
+
+        y_pred = model.predict(X)
+        
+        st.session_state.dtr_model = model
+        st.session_state.dtr_features = selected_features
+        st.session_state.dtr_target = target_column
+        st.session_state.dtr_is_trained = True
+        st.session_state.dtr_label_encoders = label_encoders
+        st.session_state.dtr_y_pred = y_pred
+        st.session_state.dtr_y = y
+        
+        st.session_state.dtr_metrics = {
+            'mse': mean_squared_error(y, y_pred),
+            'rmse': np.sqrt(mean_squared_error(y, y_pred)),
+            'mae': mean_absolute_error(y, y_pred),
+            'r2': r2_score(y, y_pred)
+        }
+        
+
+    except Exception as e:
+        st.error(f"Wystąpił błąd podczas trenowania modelu: {str(e)}")
+        st.session_state.dtr_is_trained = False
+
+if st.session_state.dtr_is_trained:
+    st.write("---")
+
+    model = st.session_state.dtr_model
+    features = st.session_state.dtr_features
+    target = st.session_state.dtr_target
+
+    st.markdown("**Interaktywne drzewo decyzyjne**")
     
-    feature_columns = [col for col in df.columns if col != target_column]
-    numeric_features = df[feature_columns].select_dtypes(include=['number']).columns.tolist()
+    num_nodes = model.tree_.node_count
+    if num_nodes > 100:
+        st.warning(f"Drzewo ma {num_nodes} węzłów. Wizualizacja może być mniej czytelna dla bardzo dużych drzew. Rozważ zmniejszenie max_depth lub zwiększenie min_samples_leaf/min_samples_split.")
+    
+    fig = create_interactive_tree(model, features)
+    st.plotly_chart(fig, use_container_width=True)
 
-    if len(numeric_features) == 0:
-        st.error("Brak kolumn numerycznych do użycia jako cechy! Drzewo decyzyjne wymaga cech numerycznych.")
-        st.stop()
+    st.markdown("""
+    **Wyjaśnienie metryk w węzłach:**
 
-    st.markdown("**Parametry**")
+    **MSE** (Mean Squared Error) to średni kwadrat błędu w węźle, który pokazuje jak bardzo wartości w tym węźle różnią się od ich średniej. Wartość 0 oznacza węzeł idealny (wszystkie próbki mają tę samą wartość), a wyższe wartości oznaczają większą zmienność przewidywań.
 
-    col1, col2, col3 = st.columns(3)
+    **Próbki** (Samples) to liczba próbek treningowych, które trafiły do tego węzła, przydatne do wyobrażenia sobie wpływu parametrów *min_samples_split/leaf*.
 
+    **Wartość** (Value) to przewidywana wartość w tym węźle, obliczana jako średnia wartości docelowych wszystkich próbek, które trafiły do tego węzła. W liściach jest to finalna predykcja modelu.
+
+    Zmieniające się kolory węzłów reprezentują przewidywaną wartość - różne odcienie na skali kolorów pokazują jak zmienia się predykcja w różnych częściach drzewa. Wraz ze zbliżaniem się do liści, kolory stają się bardziej jednolite, gdyż węzły zawierają bardziej jednorodne wartości.
+    """)
+
+    st.markdown("**Metryki modelu**")
+    metrics = st.session_state.dtr_metrics
+
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
-        max_depth = st.slider(
-            "max_depth",
-            min_value=1,
-            max_value=20,
-            value=5,
-        )
-
+        st.metric("R²", f"{metrics['r2']:.4f}")
     with col2:
-        min_samples_leaf = st.slider(
-            "min_samples_leaf",
-            min_value=1,
-            max_value=20,
-            value=1,
-        )
-
+        st.metric("RMSE", f"{metrics['rmse']:.4f}")
     with col3:
-        min_samples_split = st.slider(
-            "min_samples_split",
-            min_value=2,
-            max_value=20,
-            value=2,
-        )
+        st.metric("MAE", f"{metrics['mae']:.4f}")
+    with col4:
+        st.metric("Głębokość drzewa", model.get_depth())
 
-    if st.button("Trenuj model", type="primary"):
-        try:
-            X = df[numeric_features]
-            y = df[target_column]
+    # Wykres rzeczywiste vs przewidywane
+    st.markdown("**Wykres: Wartości rzeczywiste vs przewidywane**")
+    
+    y = st.session_state.dtr_y
+    y_pred = st.session_state.dtr_y_pred
+    
+    fig2 = go.Figure()
 
-            X_train, X_test, y_train, y_test = train_test_split(
-                X, y, test_size=0.3, random_state=42
-            )
+    fig2.add_trace(go.Scatter(
+        x=y,
+        y=y_pred,
+        mode='markers',
+        name='Predykcje',
+        marker=dict(color='steelblue', size=8, opacity=0.6),
+        hovertemplate='<b>Rzeczywiste:</b> %{x:.2f}<br><b>Przewidywane:</b> %{y:.2f}<extra></extra>'
+    ))
 
-            model = DecisionTreeRegressor(
-                max_depth=max_depth,
-                min_samples_leaf=min_samples_leaf,
-                min_samples_split=min_samples_split,
-                random_state=42
-            )
+    min_val = min(y.min(), y_pred.min())
+    max_val = max(y.max(), y_pred.max())
+    fig2.add_trace(go.Scatter(
+        x=[min_val, max_val],
+        y=[min_val, max_val],
+        mode='lines',
+        name='Idealna predykcja',
+        line=dict(color='red', width=2, dash='dash')
+    ))
 
-            with st.spinner("Zaczekaj aż model się wytrenuje..."):
-                model.fit(X_train, y_train)
+    fig2.update_layout(
+        title='Porównanie wartości rzeczywistych i przewidywanych',
+        xaxis_title='Wartości rzeczywiste',
+        yaxis_title='Wartości przewidywane',
+        hovermode='closest',
+        showlegend=True,
+        height=600
+    )
 
-            # Oblicz metryki od razu po treningu
-            y_pred = model.predict(X_test)
-            mse = mean_squared_error(y_test, y_pred)
-            rmse = np.sqrt(mse)
-            mae = mean_absolute_error(y_test, y_pred)
-            r2 = r2_score(y_test, y_pred)
+    st.plotly_chart(fig2, use_container_width=True)
 
-            st.session_state.regression_tree_model = model
-            st.session_state.regression_model_features = numeric_features
-            st.session_state.regression_target_column = target_column
-            st.session_state.regression_X_test = X_test
-            st.session_state.regression_y_test = y_test
-            st.session_state.regression_y_pred = y_pred
-            st.session_state.regression_metrics = {
-                'mse': mse,
-                'rmse': rmse,
-                'mae': mae,
-                'r2': r2
-            }
+    st.markdown("""
+    Wykres pokazuje jak dobrze model przewiduje wartości w porównaniu z rzeczywistymi danymi:
+    
+    - **Czerwona przerywana linia** to linia idealna (y = x), gdzie wartości przewidywane są dokładnie równe rzeczywistym
+    - **Niebieskie punkty** to poszczególne próbki ze zbioru danych
+    - **Im bliżej czerwonej linii**, tym lepsze przewidywania modelu
+    - **Punkty rozrzucone daleko od linii** oznaczają większe błędy predykcji
+    
+    **Przy małym max_depth (np. 1-2):**
+    - Zobaczysz, że punkty układają się w poziome lub pionowe linie/grupy
+    - Model ma bardzo ograniczoną zdolność do przewidywania - przewiduje tylko kilka różnych wartości
+    - To oznacza **niedouczenie** (underfitting) - model jest zbyt prosty
+    
+    **Przy optymalnym max_depth:**
+    - Punkty są blisko czerwonej linii z naturalnym rozrzutem
+    - Model dobrze uchwycił zależności w danych
+    
+    **Przy zbyt dużym max_depth:**
+    - Punkty mogą być bardzo blisko linii (model "zapamiętał" dane)
+    - To oznaka **przeuczenia** (overfitting) - model może słabo działać na nowych danych
+    """)
 
-        except Exception as e:
-            st.error(f"Błąd podczas treningu: {str(e)}")
-
-    if 'regression_tree_model' in st.session_state:
-        st.write("---")
-
-        model = st.session_state.regression_tree_model
-        features = st.session_state.regression_model_features
-        target = st.session_state.regression_target_column
-
-        st.markdown("**Interaktywne drzewo decyzyjne**")
+    st.subheader("Testowanie modelu")
+    st.markdown("Wprowadź wartości dla nowej próbki:")
+    
+    input_data = {}
+    
+    num_features = len(features)
+    cols_per_row = min(4, num_features)
+    
+    for idx, feature in enumerate(features):
+        if idx % cols_per_row == 0:
+            cols = st.columns(cols_per_row)
         
-        # Sprawdź rozmiar drzewa
-        num_nodes = model.tree_.node_count
-        if num_nodes > 100:
-            st.warning(f"Drzewo ma {num_nodes} węzłów. Wizualizacja może być mniej czytelna dla bardzo dużych drzew. Rozważ zmniejszenie max_depth lub zwiększenie min_samples_leaf/min_samples_split.")
-        
-        # Utwórz interaktywną wizualizację
-        fig = create_interactive_tree(model, features)
-        st.plotly_chart(fig, use_container_width=True)
-
-        st.markdown("""
-        **Wyjaśnienie metryk w węzłach:**
-
-        **MSE** (Mean Squared Error) to średni kwadrat błędu w węźle, który pokazuje jak bardzo wartości w tym węźle różnią się od ich średniej. Wartość 0 oznacza węzeł idealny (wszystkie próbki mają tę samą wartość), a wyższe wartości oznaczają większą zmienność przewidywań.
-
-        **Próbki** (Samples) to liczba próbek treningowych, które trafiły do tego węzła, przydatne do wyobrażenia sobie wpływu parametrów *min_samples_split/leaf*.
-
-        **Wartość** (Value) to przewidywana wartość w tym węźle, obliczana jako średnia wartości docelowych wszystkich próbek, które trafiły do tego węzła. W liściach jest to finalna predykcja modelu.
-
-        Zmieniające się kolory węzłów reprezentują przewidywaną wartość - różne odcienie na skali kolorów pokazują jak zmienia się predykcja w różnych częściach drzewa. Wraz ze zbliżaniem się do liści, kolory stają się bardziej jednolite, gdyż węzły zawierają bardziej jednorodne wartości.
-        """)
-
-        st.markdown("**Metryki modelu**")
-        y_test = st.session_state.regression_y_test
-        y_pred = st.session_state.regression_y_pred
-        metrics = st.session_state.regression_metrics
-
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("R² Score", f"{metrics['r2']:.4f}")
-        with col2:
-            st.metric("RMSE", f"{metrics['rmse']:.4f}")
-        with col3:
-            st.metric("MAE", f"{metrics['mae']:.4f}")
-        with col4:
-            st.metric("Głębokość drzewa", model.get_depth())
-
-        st.markdown("""
-        **Wyjaśnienie metryk:**
-        - **R² Score**: Współczynnik determinacji (0-1), pokazuje jak dobrze model wyjaśnia wariancję danych. 1.0 = doskonałe dopasowanie.
-        - **RMSE**: Root Mean Squared Error - pierwiastek ze średniego kwadratu błędów, w tych samych jednostkach co zmienna docelowa.
-        - **MAE**: Mean Absolute Error - średni bezwzględny błąd predykcji.
-        """)
-
-        # Wykres rzeczywiste vs przewidywane
-        st.markdown("**Wykres: Wartości rzeczywiste vs przewidywane**")
-        X_train = df[features].drop(st.session_state.regression_X_test.index)
-        y_train = df[target].drop(st.session_state.regression_y_test.index)
-        y_train_pred = model.predict(X_train)
-        
-        fig2 = go.Figure()
-
-        # Zbiór treningowy
-        fig2.add_trace(go.Scatter(
-            x=y_train,
-            y=y_train_pred,
-            mode='markers',
-            name='Zbiór treningowy',
-            marker=dict(color='orange', size=8, opacity=0.5),
-            hovertemplate='<b>Treningowy</b><br>Rzeczywiste: %{x:.2f}<br>Przewidywane: %{y:.2f}<extra></extra>'
-        ))
-
-        # Zbiór testowy
-        fig2.add_trace(go.Scatter(
-            x=y_test,
-            y=y_pred,
-            mode='markers',
-            name='Zbiór testowy',
-            marker=dict(color='blue', size=8, opacity=0.5),
-            hovertemplate='<b>Testowy</b><br>Rzeczywiste: %{x:.2f}<br>Przewidywane: %{y:.2f}<extra></extra>'
-        ))
-
-        # Linia idealnej predykcji
-        min_val = min(y_train.min(), y_test.min())
-        max_val = max(y_train.max(), y_test.max())
-        fig2.add_trace(go.Scatter(
-            x=[min_val, max_val],
-            y=[min_val, max_val],
-            mode='lines',
-            name='Idealna predykcja',
-            line=dict(color='red', width=2, dash='dash')
-        ))
-
-        fig2.update_layout(
-            title='Porównanie wartości rzeczywistych i przewidywanych',
-            xaxis_title='Wartości rzeczywiste',
-            yaxis_title='Wartości przewidywane',
-            hovermode='closest',
-            showlegend=True,
-            width=800,
-            height=600
-        )
-
-        st.plotly_chart(fig2, use_container_width=True)
-
-        st.markdown("""
-        Wykres pokazuje jak dobrze model przewiduje wartości w porównaniu z rzeczywistymi danymi ze zbioru testowego:
-        
-        - **Czerwona przerywana linia** to linia idealna (y = x), gdzie wartości przewidywane są dokładnie równe rzeczywistym
-        - **Niebieskie punkty** to poszczególne próbki ze zbioru testowego
-        - **Pomorańczowe punkty** to poszczególne próbki ze zbioru treningowego            
-        - **Im bliżej czerwonej linii**, tym lepsze przewidywania modelu
-        - **Punkty rozrzucone daleko od linii** oznaczają większe błędy predykcji
-        
-        **Przy małym max_depth (np. 1-2):**
-        - Zobaczysz, że punkty układają się w poziome lub pionowe linie/grupy
-        - Model ma bardzo ograniczoną zdolność do przewidywania - przewiduje tylko kilka różnych wartości
-        - To oznacza **niedouczenie** (underfitting) - model jest zbyt prosty
-        
-        **Przy optymalnym max_depth:**
-        - Punkty są blisko czerwonej linii, ale z naturalnym rozrzutem
-        - Model dobrze uchwycił zależności w danych
-        
-        **Przy zbyt dużym max_depth:**
-        - Punkty mogą być bardzo blisko linii dla danych treningowych, ale daleko dla testowych
-        - To oznaka **przeuczenia** (overfitting) - model zapamiętał dane treningowe zamiast nauczyć się ogólnych wzorców
-        """)
-
-        st.subheader("Testowanie modelu")
-        st.markdown("Wprowadź wartości dla nowej próbki:")
-        
-        input_data = {}
-        
-        # Inteligentny layout: max 4 kolumny, reszta w wierszach
-        num_features = len(features)
-        cols_per_row = min(4, num_features)
-        
-        for idx, feature in enumerate(features):
-            # Co n-tą cechę twórz nowy wiersz
-            if idx % cols_per_row == 0:
-                cols = st.columns(cols_per_row)
-            
-            with cols[idx % cols_per_row]:
+        with cols[idx % cols_per_row]:
+            if feature in st.session_state.dtr_label_encoders:
+                le = st.session_state.dtr_label_encoders[feature]
+                options = list(le.classes_)
+                input_data[feature] = st.selectbox(
+                    feature,
+                    options,
+                    key=f"dtr_input_{feature}"
+                )
+            else:
                 min_val = float(df[feature].min())
                 max_val = float(df[feature].max())
                 mean_val = float(df[feature].mean())
@@ -479,11 +589,21 @@ if target_column:
                     max_value=max_val,
                     value=mean_val,
                     step=step,
-                    key=f"test_input_{feature}"
+                    key=f"dtr_input_{feature}"
                 )
-        
-        if st.button("Przewiduj wartość"):
+    
+    if st.button("Przewiduj wartość", type="primary"):
+        try:
             input_df = pd.DataFrame([input_data])
+            
+            for col in input_df.columns:
+                if col in st.session_state.dtr_label_encoders:
+                    le = st.session_state.dtr_label_encoders[col]
+                    input_df[col] = le.transform(input_df[col].astype(str))
+            
             prediction = model.predict(input_df)[0]
+            
             st.markdown("**Wynik predykcji:**")
-            st.success(f"{prediction:.4f}")
+            st.success(f"Przewidywana wartość dla **{target}**: **{prediction:.4f}**")
+        except Exception as e:
+            st.error(f"Błąd podczas predykcji: {str(e)}")

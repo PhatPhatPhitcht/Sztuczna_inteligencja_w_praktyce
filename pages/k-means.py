@@ -8,6 +8,7 @@ import seaborn as sns
 from matplotlib.animation import FuncAnimation
 import time
 import streamlit as st
+from utils.file_loader import load_file_to_dataframe
 
 st.set_page_config(page_title="Interaktywne algorytmy uczenia maszynowego", initial_sidebar_state="collapsed")
 st.markdown("""
@@ -23,15 +24,8 @@ if 'df' not in st.session_state:
 
 df = st.session_state.df
 
-# kolumny numeryczne i usuń braki
+# kolumny numeryczne i braki
 data = df.select_dtypes(include=[np.number]).dropna()
-
-scaler = StandardScaler()
-data_scaled = scaler.fit_transform(data)
-
-pca = PCA(n_components=2)
-data_2d = pca.fit_transform(data_scaled)
-explained_variance = pca.explained_variance_ratio_
 
 class KMeansIterative:
     def __init__(self, n_clusters=3, max_iter=100, random_state=42):
@@ -121,6 +115,52 @@ Poniżej możesz zobaczyć iteracyjne zmiany przy obliczaniu klastrów na wybran
 
 st.divider()
 
+with st.expander("Wczytaj inne dane"):
+    uploaded_file = st.file_uploader(
+    "Wybierz plik (CSV, JSON lub XML)", 
+    type=['csv', 'json', 'xml']
+)
+    if uploaded_file is not None:
+        load_file_to_dataframe(uploaded_file)
+
+with st.expander("Podgląd danych"):
+    st.dataframe(st.session_state.df.head())
+
+# Expander do wyboru zmiennych
+with st.expander(" Wybór zmiennych do analizy"):
+    st.markdown("**Wybierz zmienne, które chcesz użyć do klasteryzacji:**")
+    st.info("Jeśli wybierzesz więcej niż 2 zmienne, automatycznie zostanie zastosowane PCA do redukcji wymiarów.")
+    
+    available_columns = data.columns.tolist()
+    selected_columns = st.multiselect(
+        "Dostępne zmienne numeryczne:",
+        options=available_columns,
+        default=available_columns[:min(2, len(available_columns))],
+        help="Wybierz co najmniej 2 zmienne"
+    )
+    
+    if len(selected_columns) < 2:
+        st.warning(" Wybierz co najmniej 2 zmienne do analizy!")
+        st.stop()
+
+data_selected = data[selected_columns]
+scaler = StandardScaler()
+data_scaled = scaler.fit_transform(data_selected)
+
+if len(selected_columns) > 2:
+    pca = PCA(n_components=2)
+    data_2d = pca.fit_transform(data_scaled)
+    explained_variance = pca.explained_variance_ratio_
+    use_pca = True
+    st.info(f" Zastosowano PCA: z {len(selected_columns)} zmiennych do 2 głównych składowych")
+elif len(selected_columns) == 2:
+    data_2d = data_scaled
+    explained_variance = [1.0, 1.0]
+    use_pca = False
+else:
+    st.error("Wybierz co najmniej 2 zmienne!")
+    st.stop()
+
 col1, col2 = st.columns(2)              
 
 max_iter = 100
@@ -138,7 +178,7 @@ if st.button("Uruchom K-means", type="primary"):
     # Wszystkie iteracje
     st.subheader(f"Historia K-means ({len(kmeans.history)} iteracji)")
 
-    #----------------------Wybieranie 5 iteracji do pokazania---------------------
+    #----------------------Wybieranie iteracji do pokazania---------------------
     total_iterations = len(kmeans.history)
 
     if total_iterations <= max_plots:
@@ -191,10 +231,19 @@ if st.button("Uruchom K-means", type="primary"):
                    color='white', fontsize=12, fontweight='bold',
                    ha='center', va='center', zorder=6)
 
-        ax.set_xlabel(f'PC1 ({explained_variance[0]*100:.1f}% wariancji)')
-        ax.set_ylabel(f'PC2 ({explained_variance[1]*100:.1f}% wariancji)')
+        # Etykiety osi zależnie od tego czy użyto PCA
+        if use_pca:
+            ax.set_xlabel(f'PC1 ({explained_variance[0]*100:.1f}% wariancji)')
+            ax.set_ylabel(f'PC2 ({explained_variance[1]*100:.1f}% wariancji)')
+        else:
+            ax.set_xlabel(selected_columns[0])
+            ax.set_ylabel(selected_columns[1])
 
-        ax.set_title(f'K-means Clustering - Iteracja {iteration+1}\nDataset: Irys ({len(data_2d)} punktów, {n_clusters} klastry)', 
+        variables_text = f"Zmienne: {', '.join(selected_columns)}"
+        if use_pca:
+            variables_text += f" (PCA)"
+        
+        ax.set_title(f'K-means Clustering - Iteracja {iteration+1}\n{variables_text}\n({len(data_2d)} punktów, {n_clusters} klastry)', 
                     fontsize=14, fontweight='bold')
         ax.legend(loc='upper right')
         ax.grid(True, alpha=0.3)
@@ -204,8 +253,10 @@ if st.button("Uruchom K-means", type="primary"):
         st.pyplot(fig)
         plt.close(fig)
 
-    st.markdown("""
-    **Procent wariacji** oznacza, że ten wymiar zachowuje taką ilość informacji o zróżnicowaniu danych. 
-                PC1 + PC2 nie muszą dawać 100%, ale im bliżej 100%, tym lepiej zachowana struktura danych po redukcji wymiarów.
-    """)
+    if use_pca:
+        st.markdown(f"""
+        **Procent wariancji** oznacza, że ten wymiar zachowuje taką ilość informacji o zróżnicowaniu danych. 
+        PC1 + PC2 razem zachowują {(explained_variance[0] + explained_variance[1])*100:.1f}% całkowitej wariancji z oryginalnych {len(selected_columns)} zmiennych.
+        Im bliżej 100%, tym lepiej zachowana struktura danych po redukcji wymiarów.
+        """)
     #---------------------Koniec Wykresów----------------------

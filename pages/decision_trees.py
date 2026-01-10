@@ -216,7 +216,7 @@ if target_column and len(selected_features) > 0:
                 if actual_cv_folds < cv_folds:
                     st.warning(f"Zbyt mało danych dla {cv_folds} foldów. Użyto {actual_cv_folds} foldów.")
                 
-                cv_scores = cross_val_score(model, X, y, cv=actual_cv_folds, scoring='accuracy')
+                cv_scores = cross_val_score(model, X_train, y_train, cv=actual_cv_folds)
 
             # Zapisanie do session_state z prefiksem dt_ (decision tree)
             st.session_state.dt_model = model
@@ -248,7 +248,7 @@ if target_column and len(selected_features) > 0:
         features = st.session_state.dt_features
         target = st.session_state.dt_target_column
         
-        # Drzewa w Plotly
+        #Drzewa w Plotly--------------------------------------------------------------
         def create_plotly_tree(model, feature_names, class_names):
             tree = model.tree_
             

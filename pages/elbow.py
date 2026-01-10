@@ -17,8 +17,7 @@ if 'df' not in st.session_state:
     st.error("Brak danych! Najpierw załaduj stronę główną")
     st.stop()
 
-
-st.page_link("main.py", label="⬅️ Powrót do strony głównej")
+st.page_link("pages/k-means.py", label="⬅️ Powrót do K-means")
 
 st.subheader("Metoda łokcia")
 st.markdown("""

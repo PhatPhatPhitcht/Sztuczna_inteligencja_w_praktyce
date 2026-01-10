@@ -89,22 +89,27 @@ st.page_link("main.py", label="⬅️ Powrót do strony głównej")
 st.subheader("Algorytm K-means")
 st.markdown("""
 Algorytm K-Means grupuje dane, próbując podzielić próbki na n grup o równej wariancji, minimalizując kryterium znane jako inercja (ang. inertia) lub suma kwadratów wewnątrz klastrów (patrz poniżej). Algorytm wymaga podania liczby klastrów. Dobrze skalowalny do dużej liczby próbek, jest szeroko stosowany w wielu dziedzinach.
-            
+
+Jeżeli nie wiesz jaką liczbę klastrów wybrać, możwsz skorzystać z metody łokcia:
+""")            
+if st.button("**Metoda łokcia**", type="secondary"):
+    st.switch_page("pages/elbow.py")
+st.markdown("""
 Algorytm K-Means dzieli zbiór próbek na rozłączne klastry, z których każdy opisany jest średnią próbek w tym klastrze. Te średnie są nazywane centroidami; zazwyczaj nie są to rzeczywiste punkty ze zbioru, chociaż leżą w tej samej przestrzeni.
 
 Celem algorytmu K-Means jest wybór centroidów minimalizujących inercję, czyli sumę kwadratów odchyleń wewnątrz klastrów.
 
 Inercję można traktować jako miarę spójności wewnątrz klastrów. Ma jednak kilka wad:
--Zakłada, że klastry są wypukłe i izotropowe, co nie zawsze jest prawdą. Źle radzi sobie z klastrami wydłużonymi lub o nieregularnych kształtach.
--Nie jest znormalizowana: wiadomo tylko, że mniejsze wartości są lepsze, a 0 jest idealne. W bardzo wysokich wymiarach odległości euklidesowe rosną (tzw. klątwa wymiarowości). Redukcja wymiarów, np. PCA, przed klasteryzacją k-means, może złagodzić ten problem i przyspieszyć obliczenia.
+- Zakłada, że klastry są wypukłe i izotropowe, co nie zawsze jest prawdą. Źle radzi sobie z klastrami wydłużonymi lub o nieregularnych kształtach.
+- Nie jest znormalizowana: wiadomo tylko, że mniejsze wartości są lepsze, a 0 jest idealne. W bardzo wysokich wymiarach odległości euklidesowe rosną (tzw. klątwa wymiarowości). Redukcja wymiarów, np. PCA, przed klasteryzacją k-means, może złagodzić ten problem i przyspieszyć obliczenia.
 
-Algorytm k-means jest często nazywany algorytmem Lloyda. Składa się z trzech kroków. Pierwszy wybiera centroidy początkowe — najprostsza metoda to losowy wybór próbek z zestawu danych. Następnie algorytm wykonuje dwie fazy w pętli:
+Algorytm k-means składa się z trzech kroków. Pierwszy wybiera centroidy początkowe - najprostsza metoda to losowy wybór próbek z zestawu danych. Następnie algorytm wykonuje dwie fazy w pętli:
 - Przypisanie każdej próbki do najbliższego centroidu.
 - Wyznaczenie nowych centroidów jako średnich próbek przypisanych do poprzednich centroidów.
 
-Różnica między starymi a nowymi centroidami jest obliczana i algorytm powtarza te kroki, aż do osiągnięcia progu — innymi słowy, gdy centroidy przestają się istotnie zmieniać.
+Różnica między starymi a nowymi centroidami jest obliczana i algorytm powtarza te kroki, aż do osiągnięcia progu - innymi słowy, gdy centroidy przestają się istotnie zmieniać.
 
-Iteracje zwykle kończą się, gdy względny spadek funkcji celu jest mniejszy niż tolerancja; w tej implementacji — gdy centroidy przesuwają się o mniej niż wartość tolerancji.
+Iteracje zwykle kończą się, gdy względny spadek funkcji celu jest mniejszy niż tolerancja; w tej implementacji - gdy centroidy przesuwają się o mniej niż wartość tolerancji.
 
 [Dowiedz się więcej:](https://scikit-learn.org/stable/modules/clustering.html#k-means)            
 

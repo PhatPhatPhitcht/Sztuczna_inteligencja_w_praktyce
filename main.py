@@ -1,12 +1,9 @@
 import streamlit as st
 import pandas as pd
-import json
-import xml.etree.ElementTree as ET
-from io import StringIO
 import matplotlib.pyplot as plt
 import seaborn as sns
 from utils.file_loader import load_file_to_dataframe
-from sklearn.datasets import fetch_openml
+from matplotlib.ticker import FuncFormatter
 
 st.set_page_config(page_title="Interaktywne algorytmy uczenia maszynowego", initial_sidebar_state="collapsed")
 st.markdown("""
@@ -17,11 +14,7 @@ st.markdown("""
   
 df_iris = sns.load_dataset("iris")
 
-housing = fetch_openml(
-        name="house_prices",
-        as_frame=True
-        )
-df_house = housing.frame
+df_house = pd.read_csv("house_data.csv")
 
 if "df" not in st.session_state:
         st.session_state.df = df_iris
@@ -33,7 +26,6 @@ st.markdown("**Dostępne algorytmy:**")
 col1, col2, col3 = st.columns(3)
 with col1:
     st.markdown("**Klasteryzacja**")
-    st.page_link("pages/elbow.py", label="Metoda łokcia")
     st.page_link("pages/k-means.py", label="K-means")
     st.page_link("pages/dbscan.py", label="DBSCAN")  
 with col2:
@@ -128,78 +120,62 @@ with st.expander("Dowiedz się więcej o zbiorze Iris"):
     ax.set_ylabel("Szerokość kielicha")
     st.pyplot(fig)
 
-with st.expander("Dowiedz się więcej o zbiorze House Prices"):
-    if st.button("Wybierz *House Prices* jako podstawowy zbiór"):
+with st.expander("Dowiedz się więcej o zbiorze House Sales"):
+    if st.button("Wybierz *House Sales* jako podstawowy zbiór"):
         st.session_state.df = df_house
 
     st.markdown("""
-    Zbiór House Prices (Ames Housing) to popularny dataset wykorzystywany
+    Zbiór House Sales in King County to popularny dataset wykorzystywany
     w uczeniu maszynowym do zadań regresji.
     Celem jest przewidywanie ceny sprzedaży domu.
-
-    Zbiór zawiera dane dotyczące **1460 domów** sprzedanych w mieście Ames (Iowa, USA).
-
-    Dla każdej nieruchomości opisano **79 cech**, obejmujących m.in.:
-    - lokalizację (np. Neighborhood)
-    - wielkość działki i powierzchnię domu
-    - jakość i stan techniczny budynku
-    - rok budowy i modernizacji
-    - liczbę pokoi
-    - informacje o piwnicy, garażu i tarasie
-
-    Zmienną docelową jest:
-    - SalePrice — cena sprzedaży domu (w USD)
-
-    Zbiór zawiera zarówno cechy numeryczne, jak i kategoryczne,
-    a także braki danych, co czyni go dobrym przykładem do nauki
-    preprocessingu i inżynierii cech.
+    Zbiór zawiera dane dotyczące domów sprzedanych w King County (stan Waszyngton, USA),
+    który obejmuje m.in. Seattle.
+    
+    Dataset zawiera następujące cechy:
+    - **price** - cena sprzedaży domu (w USD) - zmienna docelowa
+    - **bedrooms** - liczba sypialni
+    - **bathrooms** - liczba łazienek
+    - **sqft_living** - powierzchnia mieszkalna (stopy kwadratowe)
+    - **sqft_lot** - powierzchnia działki (stopy kwadratowe)
+    - **floors** - liczba pięter
+    - **waterfront** - widok na wodę (0/1)
+    - **view** - jakość widoku (0-4)
+    - **condition** - stan techniczny (1-5)
+    - **grade** - ocena jakości budowy i designu (1-13)
+    - **sqft_above** - powierzchnia naziemna
+    - **sqft_basement** - powierzchnia piwnicy
+    - **yr_built** - rok budowy
+    - **yr_renovated** —- rok renowacji (0 jeśli nie było)
+    - **zipcode** - kod pocztowy
+    - **lat, long** - współrzędne geograficzne
+    - **sqft_living15, sqft_lot15** - średnia powierzchnia 15 najbliższych sąsiadów
+    
+    Zbiór zawiera wyłącznie cechy numeryczne, co upraszcza preprocessing.
                 """)
+    
     st.header("Podgląd danych")
-
     st.dataframe(df_house)
 
     st.subheader("Statystyki opisowe")
     st.write(df_house.describe())
 
     st.subheader("Rozkład ceny sprzedaży")
-
     fig, ax = plt.subplots()
-    sns.histplot(df_house["SalePrice"], kde=True, ax=ax)
-    ax.set_xlabel("Cena sprzedaży (USD)")
+    sns.histplot(df_house["price"], kde=True, ax=ax)
+    ax.set_xlabel("Cena sprzedaży (miliony USD)")
     ax.set_ylabel("Liczba domów")
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda x, p: f'{x/1e6:.1f}'))
     st.pyplot(fig)
-
-    st.header("Rozłożenie danych")
-    st.subheader("Boxplot wybranych cech")
-
-    num_features = [
-        "SalePrice",
-        "GrLivArea",
-        "TotalBsmtSF",
-        "LotArea",
-        "OverallQual"
-    ]
-
-    fig, ax = plt.subplots(figsize=(8, 4))
-    sns.boxplot(data=df_house[num_features], orient="h", ax=ax)
-    ax.set_yticklabels([
-        "Cena sprzedaży",
-        "Powierzchnia mieszkalna",
-        "Powierzchnia piwnicy",
-        "Powierzchnia działki",
-        "Ogólna jakość"
-    ])
-    st.pyplot(fig)
-
+    
     st.subheader("Scatterplot: powierzchnia vs cena")
-
     fig, ax = plt.subplots()
     sns.scatterplot(
         data=df_house,
-        x="GrLivArea",
-        y="SalePrice",
+        x="sqft_living",
+        y="price",
         ax=ax
     )
-    ax.set_xlabel("Powierzchnia mieszkalna (m²)")
-    ax.set_ylabel("Cena sprzedaży (USD)")
+    ax.set_xlabel("Powierzchnia mieszkalna (stopy kwadratowe)")
+    ax.set_ylabel("Cena sprzedaży (miliony USD)")
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda y, p: f'{y/1e6:.1f}'))
     st.pyplot(fig)

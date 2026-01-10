@@ -101,15 +101,11 @@ st.divider()
 
 with st.expander("Wczytaj inne dane"):
     st.markdown("""
-    Do regresji zalecam użycie zbioru *House Prices (Ames Housing)*
+    Do regresji zalecam użycie zbioru *House Sales*
         """)
-    if st.button("Wczytaj *House Prices*", type="secondary"):
-        housing = fetch_openml(
-        name="house_prices",
-        as_frame=True
-        )
-        st.session_state.df = housing.frame
-        df = housing.frame
+    if st.button("Wczytaj *House sales*", type="secondary"):
+        st.session_state.df = pd.read_csv("house_data.csv")
+        df = pd.read_csv("house_data.csv")
 
     uploaded_file = st.file_uploader(
     "Wybierz plik (CSV, JSON lub XML)", 

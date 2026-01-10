@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
 from sklearn.metrics import confusion_matrix, classification_report, f1_score, recall_score, precision_score
 import streamlit as st
 from utils.file_loader import load_file_to_dataframe
@@ -99,6 +99,8 @@ def plot_decision_boundary(X_train, y_train, X_test, y_test, state, ax, title, m
     colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', 
               '#F38181', '#AA96DA', '#FCBAD3', '#A8E6CF', '#FFD3B6']
     
+    markers = ['o', 's', '^', 'D', 'X', 'P', '*', 'v', '<', '>']
+    
     # Jeśli model istnieje
     if state['coef'] is not None and model is not None:
         temp_model = LogisticRegression()
@@ -138,21 +140,30 @@ def plot_decision_boundary(X_train, y_train, X_test, y_test, state, ax, title, m
     for idx, cls in enumerate(unique_classes):
         mask = y_train == cls
         if np.any(mask):
-            ax.scatter(X_train[mask, 0], X_train[mask, 1], 
-                      c=colors[idx % len(colors)], 
-                      alpha=0.8, s=80, edgecolors='black', linewidths=1.0, zorder=5)
+            ax.scatter(
+                X_train[mask, 0], X_train[mask, 1],
+                c=colors[idx % len(colors)],
+                marker=markers[idx % len(markers)],
+                alpha=0.8, s=80,
+                edgecolors='black', linewidths=1.0,
+                zorder=5
+            )
     
     # punkty TESTOWE
     for idx, cls in enumerate(unique_classes):
         mask = y_test == cls
         if np.any(mask):
-            ax.scatter(X_test[mask, 0], X_test[mask, 1], 
-                      c=colors[idx % len(colors)], 
-                      label=f'Klasa {cls}',
-                      alpha=0.8, s=80, edgecolors='black', linewidths=1.0, zorder=4)
+            ax.scatter(
+                X_test[mask, 0], X_test[mask, 1],
+                c=colors[idx % len(colors)],
+                marker=markers[idx % len(markers)],
+                label=f'Klasa {cls}',
+                alpha=0.8, s=80,
+                edgecolors='black', linewidths=1.0,
+                zorder=4)
             ax.scatter(X_test[mask, 0], X_test[mask, 1],
-                      facecolors='none', edgecolors='black', 
-                      s=10, linewidths=1.0, zorder=6)
+                facecolors='none', edgecolors='black', 
+                s=10, linewidths=1.0, zorder=6)
     
     # Nowy punkt testowy
     if new_point is not None:
@@ -179,46 +190,58 @@ def plot_confusion_matrix(y_true, y_pred, classes, ax):
     ax.set_ylabel('Prawdziwa klasa', fontsize=10, fontweight='bold')
     ax.set_title('Macierz pomyłek', fontsize=12, fontweight='bold')
 
+def plot_cross_validation_results(cv_scores, ax):
+    """Rysuje wyniki walidacji krzyżowej"""
+    folds = np.arange(1, len(cv_scores) + 1)
+    
+    ax.plot(folds, cv_scores, marker='o', linestyle='-', linewidth=2, 
+            markersize=8, color='#4ECDC4', label='Wynik dla foldu')
+    ax.axhline(y=np.mean(cv_scores), color='#FF6B6B', linestyle='--', 
+               linewidth=2, label=f'Średnia: {np.mean(cv_scores):.3f}')
+    ax.fill_between(folds, 
+                     np.mean(cv_scores) - np.std(cv_scores), 
+                     np.mean(cv_scores) + np.std(cv_scores),
+                     alpha=0.2, color='#FF6B6B', label=f'±1 std: {np.std(cv_scores):.3f}')
+    
+    ax.set_xlabel('Numer foldu', fontsize=10, fontweight='bold')
+    ax.set_ylabel('Dokładność', fontsize=10, fontweight='bold')
+    ax.set_title('Wyniki walidacji krzyżowej', fontsize=12, fontweight='bold')
+    ax.set_xticks(folds)
+    ax.legend(loc='lower right', fontsize=9)
+    ax.grid(True, alpha=0.3, linestyle='--')
+    ax.set_ylim([max(0, min(cv_scores) - 0.05), min(1, max(cv_scores) + 0.05)])
+
 #--------------------------------Streamlit------------------------------------
 
 st.page_link("main.py", label="⬅️ Powrót do strony głównej")
 
 st.subheader("Algorytm Regresji Logistycznej")
 st.markdown("""
-Regresja logistyczna to metoda klasyfikacji, która uczy się, jakie relacje zachodzą między 
-zestawem cech opisujących obiekty a przynależnością tych obiektów do jednej z klas. Model 
-buduje wewnętrzną funkcję liniową, która na podstawie wartości cech przypisuje każdej 
-obserwacji pewną wagę. Taki surowy wynik przechodzi przez funkcję sigmoid, zmieniającą jego 
-zakres od [0, 1]. Wynikiem tego procesu jest reprezentacja prawdopodobieństwa należenia do 
-danej klasy. Proces uczenia polega na dopasowaniu parametrów modelu tak, by przewidywane 
-prawdopodobieństwa dobrze odpowiadały rzeczywistym etykietom w zbiorze treningowym. 
-W odróżnieniu od prostych reguł typu „jeśli cecha większa niż wartość, to klasa A", regresja 
-logistyczna łączy sygnały z wielu cech jednocześnie i zwraca gładką ocenę prawdopodobieństwa, 
-co czyni ją elastyczną, łatwą do interpretacji i szeroko stosowaną przy problemach 
-klasyfikacji.
+Regresja logistyczna jest algorytmem klasyfikacji, który modeluje zależność między cechami obiektów
+a ich przynależnością do klas. Tworzy liniową kombinację cech, a następnie przekształca ją funkcją
+sigmoid, uzyskując wartość z zakresu [0,1], interpretowaną jako prawdopodobieństwo przynależności
+do danej klasy. Model uczy się poprzez dopasowanie wag tak, aby przewidywane prawdopodobieństwa jak
+najlepiej odpowiadały rzeczywistym etykietom. Dzięki łączeniu informacji z wielu cech jednocześnie
+regresja logistyczna jest elastyczna, interpretowalna i powszechnie stosowana w zadaniach
+klasyfikacyjnych.
             
 **Parametry:**
             
-Parametr oznaczany jako **C** w implementacjach regresji logistycznej pełni rolę kontrolera siły 
-regularyzacji modelu. Mniejsza wartość **C** oznacza silniejszą kontrolę nad wielkością wag, a 
-większa wartość **C** pozwala wagom swobodniej przyjmować duże wartości. W praktyce regularyzacja 
-jest mechanizmem zapobiegającym nadmiernemu dopasowaniu modelu do szumu w danych — zmniejsza skłonność 
-algorytmu do przeuczenia, czyli dopasowywania bardzo specyficznych wzorców, które nie generalizują 
-poza zbiór treningowy. Kiedy **C** jest bardzo małe, model staje się „prostszym" opisem relacji: jego 
-współczynniki są mocniej tłumione, co zwykle redukuje wariancję kosztem pewnego wzrostu błędu na 
-zbiorze treningowym i prowadzi do niedouczenia.
+Parametr **C** kontroluje siłę regularyzacji w modelu. Mniejsze wartości C oznaczają silniejsze
+ograniczanie wag, co zmniejsza ryzyko przeuczenia kosztem dokładności na zbiorze treningowym.
+Większe wartości C pozwalają modelowi lepiej dopasować się do danych, ale zwiększają ryzyko
+nadmiernego dopasowania.
 
-**Parametr penalty** (Regularyzacja) jest sposobem kontrolowania złożoności modelu poprzez dodanie 
-kary za zbyt duże wartości wag. Dzięki temu model nie dopasowuje się zbyt mocno do danych 
-treningowych i lepiej generalizuje na nowe dane.
-    - Regularyzacja typu **l2** sprawia, że wszystkie wagi są „przyciągane" w kierunku mniejszych 
-        wartości, ale w sposób równomierny. Nie eliminuje ona całkowicie żadnej cechy: zamiast tego 
-        stara się rozłożyć wagę pomiędzy wiele cech, sprawiając, że każda z nich ma niewielki wpływ.
-    - Regularyzacja typu **l1** działa bardziej „agresywnie" — nie tylko ogranicza wielkość wag, 
-        ale też sprzyja temu, aby część z nich spadła dokładnie do zera. W praktyce oznacza to, że model 
-        samodzielnie wybiera, które cechy są istotne, a które mogą zostać całkowicie pominięte.
+Parametr **penalty** określa sposób regularyzacji wag modelu:
+- l2 - równomiernie zmniejsza wszystkie wagi, zachowując wpływ każdej cechy.
+- l1 - powoduje zerowanie części wag, co prowadzi do automatycznej selekcji cech.
             
-Istotne w praktycznym stosowaniu tych parametrów jest rozumienie ich wzajemnych powiązań oraz wpływu na jakość i stabilność modelu. Regularyzacja i jej siła (penalty oraz C) decydują o złożoności modelu i jego odporności na szum, a max_iter zapewnia, że proces optymalizacji ma szansę dojść do końca.            
+**Walidacja krzyżowa** to metoda oceny modelu polegająca na podziale danych na k części.
+Model jest trenowany wielokrotnie, za każdym razem na innym podziale danych, co pozwala uzyskać
+bardziej wiarygodną ocenę jakości i lepiej wykryć przeuczenie.
+            
+Istotne w praktycznym stosowaniu tych parametrów jest rozumienie ich wzajemnych powiązań oraz 
+wpływu na jakość i stabilność modelu.          
 
 [Dowiedz się więcej](https://scikit-learn.org/stable/modules/linear_model.html#logistic-regression)
 """)
@@ -356,16 +379,17 @@ if target_col and len(selected_features) >= 2:
     st.markdown("### Parametry modelu")
     
     # Parametry modelu
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
     with col1:
         C_value = st.number_input("C (odwrotność regularyzacji)", 
                                  min_value=0.001, max_value=1000.0, value=1.0, step=0.1,
                                  format="%.3f")
-    with col2:
         penalty_type = st.selectbox("Penalty (regularyzacja)", ['l2', 'l1'])
-    with col3:
+    with col2:
         n_plots = st.slider("Liczba wykresów kroków uczenia", 
                           min_value=3, max_value=15, value=7, step=1)
+        
+        cv_folds = st.slider("Liczba foldów validacji krzyżowej", min_value=3, max_value=10, value=5, step=1)
     
     if st.button("Trenuj model", type="primary"):
         try:
@@ -383,6 +407,20 @@ if target_col and len(selected_features) >= 2:
                 X_train, X_test, y_train, y_test = train_test_split(
                     X_reduced, y_encoded, test_size=20, random_state=42, stratify=y_encoded
                 )
+            
+            # Walidacja krzyżowa
+            cv_scores = None
+            with st.spinner("Przeprowadzanie walidacji krzyżowej..."):
+                cv_model = LogisticRegression(
+                    C=C_value,
+                    penalty=penalty_type,
+                    solver='saga' if penalty_type == 'l1' else 'lbfgs',
+                    max_iter=1000,
+                    random_state=42
+                )
+                
+                skf = StratifiedKFold(n_splits=cv_folds, shuffle=True, random_state=42)
+                cv_scores = cross_val_score(cv_model, X_reduced, y_encoded, cv=skf, scoring='accuracy')
             
             with st.spinner("Trenowanie modelu..."):
                 lr = LogisticRegressionIterative(C=C_value, penalty=penalty_type, max_iter=1000)
@@ -428,6 +466,8 @@ if target_col and len(selected_features) >= 2:
                 st.session_state['lr_label_encoder'] = label_encoder
                 st.session_state['lr_x_label'] = x_label
                 st.session_state['lr_y_label'] = y_label
+                st.session_state['lr_cv_scores'] = cv_scores
+                st.session_state['lr_use_cv'] = True
             
             st.success("Model został pomyślnie wytrenowany!")
             st.rerun()
@@ -455,6 +495,26 @@ if target_col and len(selected_features) >= 2:
             st.metric("Recall", f"{st.session_state['lr_recall']:.3f}")
         with col4:
             st.metric("Precision", f"{st.session_state['lr_precision']:.3f}")
+        
+        # Metryki walidacji krzyżowej
+        if st.session_state.get('lr_use_cv') and st.session_state.get('lr_cv_scores') is not None:
+            cv_scores = st.session_state['lr_cv_scores']
+            
+            st.markdown("### Wyniki walidacji krzyżowej")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Średnia dokładność CV", f"{np.mean(cv_scores):.3f}")
+            with col2:
+                st.metric("Odchylenie standardowe CV", f"{np.std(cv_scores):.3f}")
+            with col3:
+                st.metric("Zakres CV", f"{np.min(cv_scores):.3f} - {np.max(cv_scores):.3f}")
+            
+            # Wykres walidacji krzyżowej
+            fig, ax = plt.subplots(figsize=(10, 5))
+            plot_cross_validation_results(cv_scores, ax)
+            plt.tight_layout()
+            st.pyplot(fig)
+            plt.close(fig)
         
         col1, col2 = st.columns(2)
         with col1:

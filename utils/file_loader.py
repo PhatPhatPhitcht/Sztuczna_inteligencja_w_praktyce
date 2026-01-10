@@ -27,7 +27,6 @@ def load_file_to_dataframe(uploaded_file):
         elif file_extension == 'xml':
             tree = ET.parse(uploaded_file)
             root = tree.getroot()
-
             data = []
             for child in root:
                 row = {}
@@ -41,17 +40,24 @@ def load_file_to_dataframe(uploaded_file):
                     df[col] = pd.to_numeric(df[col])
                 except (ValueError, TypeError):
                     pass
-
             st.success(f"Wczytano plik XML: {uploaded_file.name}")
             
         else:
             st.error(f"Nieobsługiwany format pliku: {file_extension}")
             return False
-
+        
+        # Sprawdzenie brakujących danych
+        missing_count = df.isnull().sum().sum()
+        if missing_count > 0:
+            missing_cols = df.columns[df.isnull().any()].tolist()
+            st.error(f"Znaleziono {missing_count} brakujących wartości w kolumnach: {', '.join(missing_cols)}")
+            st.error("Plik zawiera brakujące dane. Proszę uzupełnić dane lub usunąć wiersze z brakami.")
+            return False
+        
         st.session_state.df = df
         
         return True
         
     except Exception as e:
-        st.error(f"Błąd podczas wczytywania pliku: {str(e)}")
+        st.error(f"Błąd podczas wczytywania pliku, spróbuj wczytać inne dane")
         return False

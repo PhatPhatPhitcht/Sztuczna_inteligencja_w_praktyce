@@ -86,11 +86,17 @@ with st.expander("Wczytaj inne dane"):
         df = pd.read_csv("house_data.csv")
 
     uploaded_file = st.file_uploader(
-    "Wybierz plik (CSV, JSON lub XML)", 
-    type=['csv', 'json', 'xml']
-)
+        "Wybierz plik (CSV, JSON lub XML)", 
+        type=['csv', 'json', 'xml']
+    )
+    
     if uploaded_file is not None:
-        load_file_to_dataframe(uploaded_file)
+        if 'uploaded_filename' not in st.session_state or \
+           st.session_state['uploaded_filename'] != uploaded_file.name:
+            
+            load_file_to_dataframe(uploaded_file)
+            st.session_state['uploaded_filename'] = uploaded_file.name
+            st.rerun()
 
 with st.expander("Podgląd danych"):
     st.dataframe(st.session_state.df.head())
@@ -118,11 +124,10 @@ if len(numeric_cols) < 1:
 # Expander do wyboru zmiennych
 with st.expander("Wybór zmiennych", expanded=False):
     st.markdown("""
-    **Wybierz zmienne zależne (etykiety) i niezależne (cechy), które będą użyte do predykcji.**
+    **Wybierz zmienne , które będą użyte do predykcji.**
     
-    - Jeśli wybierzesz **więcej niż 1 zmienną**, automatycznie zastosowana zostanie **PCA** do redukcji wymiarowości (1 komponent główny).
-    - Zmienne tekstowe (kategoryczne) zostaną automatycznie zakodowane numerycznie.
-    - PCA ułatwia analizę heteroskedastyczności w przestrzeni wielowymiarowej.
+    - Jeśli wybierzesz **więcej niż 2 zmienne niezależne**, zastosowana zostanie **PCA (Principal Component Analysis)** do redukcji wymiarowości dla wizualizacji.
+    - Zmienne tekstowe (kategoryczne) nie są obsługiwane.
     """)
     
     y_col = st.selectbox(

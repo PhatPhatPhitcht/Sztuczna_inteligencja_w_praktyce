@@ -128,42 +128,54 @@ st.page_link("main.py", label="⬅️ Powrót do strony głównej")
 
 st.subheader("Algorytm DBSCAN")
 st.markdown("""
-**Algorytm DBSCAN** traktuje klastry jako obszary o dużej gęstości oddzielone obszarami o małej gęstości. Dzięki takiemu ogólnemu 
-            podejściu klastry wykrywane przez DBSCAN mogą mieć dowolny kształt, w przeciwieństwie do k-means, który zakłada, 
-            że klastry mają kształt wypukły. Centralnym pojęciem DBSCAN jest **próbka rdzeniowa** (ang. \textsl{core sample}), czyli próbka 
-            znajdująca się w obszarze o dużej gęstości. Klaster stanowi zatem zbiór próbek rdzeniowych leżących blisko siebie 
-            (według wybranej miary odległości) oraz zbiór próbek nierdzeniowych, które są sąsiadami próbek rdzeniowych, lecz same 
-            nimi nie są. Algorytm ma dwa parametry: \textbf{min_samples} i \textbf{eps} które formalnie definiują, co oznacza „gęstość". Wyższe 
-            min_samples lub niższe eps oznaczają większą wymaganą gęstość do utworzenia klastra.
+**Algorytm DBSCAN** traktuje klastry jako obszary o dużej gęstości oddzielone obszarami o małej gęstości. Dzięki temu ogólnemu 
+podejściu klastry wykrywane przez DBSCAN mogą mieć dowolny kształt, w przeciwieństwie do algorytmu k-means, który zakłada, 
+że klastry mają kształt wypukły. Centralnym pojęciem DBSCAN jest **próbka rdzeniowa** (ang. *core sample*), czyli próbka 
+znajdująca się w obszarze o dużej gęstości. Klaster stanowi zbiór próbek rdzeniowych leżących blisko siebie oraz zbiór próbek 
+nierdzeniowych, które są sąsiadami próbek rdzeniowych, lecz same nimi nie są.  
 
-Bardziej formalnie, **próbka rdzeniowa** to taka próbka, dla której istnieje co najmniej min_samples innych próbek w odległości eps,             uznawanych za jej sąsiadów. Oznacza to, że próbka ta znajduje się w gęstym obszarze przestrzeni. Klaster jest zbiorem             próbek rdzeniowych, które można uzyskać, rekurencyjnie biorąc próbkę rdzeniową, znajdując wszystkich jej sąsiadów             będących próbkami rdzeniowymi, a następnie sąsiadów tych próbek rdzeniowych itd. Klaster zawiera również próbki             nierdzeniowe — są to próbki będące sąsiadami próbek rdzeniowych, lecz same niebędące próbkami rdzeniowymi.             Intuicyjnie leżą one na obrzeżach klastra.
+Algorytm posiada dwa parametry: **min_samples** oraz **eps**, które formalnie definiują pojęcie „gęstości”. 
+Wyższa wartość **min_samples** lub niższa wartość **eps** oznaczają większą wymaganą gęstość do utworzenia klastra.
 
-Każda próbka rdzeniowa należy do klastra. Próbka, która nie jest próbką rdzeniową i znajduje się w odległości co najmniej eps od 
-            każdej próbki rdzeniowej, jest uznawana za **punkt odstający (outlier)**.
+Dokładniej, **próbka rdzeniowa** to taka próbka, dla której istnieje co najmniej **min_samples** innych próbek 
+w odległości **eps**, uznawanych za jej sąsiadów. Oznacza to, że próbka ta znajduje się w gęstym obszarze przestrzeni. 
+Klaster jest zbiorem próbek rdzeniowych, które można uzyskać rekurencyjnie, rozpoczynając od dowolnej próbki rdzeniowej, 
+wyszukując wszystkich jej sąsiadów będących próbkami rdzeniowymi, a następnie powtarzając ten proces dla kolejnych 
+próbek. Klaster zawiera również próbki nierdzeniowe — są to próbki będące sąsiadami próbek rdzeniowych, lecz same 
+niebędące próbkami rdzeniowymi. Intuicyjnie leżą one na obrzeżach klastra.
 
-Parametr **min_samples** wpływa głównie na odporność algorytmu na szum — w przypadku dużych i zaszumionych zbiorów danych często 
-            warto go zwiększyć. Natomiast parametr eps jest kluczowy i zwykle nie powinien pozostawać na wartości domyślnej. 
-            Określa on lokalne sąsiedztwo punktów: zbyt mała wartość sprawia, że większość danych pozostaje niesklasteryzowana 
-            (oznaczona jako -1, czyli „szum"), a zbyt duża prowadzi do łączenia pobliskich klastrów w jeden, a ostatecznie może 
-            spowodować, że cały zbiór zostanie zwrócony jako pojedynczy klaster.
+Każda próbka rdzeniowa należy do klastra. Próbka, która nie jest próbką rdzeniową i znajduje się w odległości większej 
+niż **eps** od każdej próbki rdzeniowej, jest uznawana za **punkt odstający (outlier)**.
 
-[Dowiedz się więcej:](https://scikit-learn.org/stable/modules/clustering.html#dbscan)            
+Parametr **min_samples** wpływa głównie na odporność algorytmu na szum — w przypadku dużych i zaszumionych zbiorów danych 
+często warto go zwiększyć. Natomiast parametr **eps** jest kluczowy i zwykle nie powinien pozostawać na wartości domyślnej. 
+Określa on lokalne sąsiedztwo punktów: zbyt mała wartość **eps** sprawia, że większość danych pozostaje niesklasteryzowana 
+(oznaczona jako -1, czyli „szum”), a zbyt duża prowadzi do łączenia pobliskich klastrów w jeden, a w skrajnym przypadku 
+może spowodować, że cały zbiór zostanie zwrócony jako pojedynczy klaster.
 
-Poniżej możesz zobaczyć zmiany przy znajdywaniu klastrów przy różnym doborze parametrów eps i min_samples. Zwróć uwagę, jak 
-            bardzo wyniki zmieniają się przy nawet małych zmianach.
+[Dowiedz się więcej](https://scikit-learn.org/stable/modules/clustering.html#dbscan)
 
-*Wykres pokazuje tylko moment znalezienia nowego klastra*            
-           
-            """)
+Poniżej możesz zobaczyć, jak zmieniają się wyniki klasteryzacji przy różnych wartościach parametrów **eps** i 
+**min_samples**. Zwróć uwagę, jak bardzo wyniki mogą się różnić nawet przy niewielkich zmianach parametrów.
+
+*Wykres pokazuje wyłącznie moment znalezienia nowego klastra.*
+""")
+
 st.divider()
 
 with st.expander("Wczytaj inne dane"):
     uploaded_file = st.file_uploader(
-    "Wybierz plik (CSV, JSON lub XML)", 
-    type=['csv', 'json', 'xml']
-)
+        "Wybierz plik (CSV, JSON lub XML)", 
+        type=['csv', 'json', 'xml']
+    )
+    
     if uploaded_file is not None:
-        load_file_to_dataframe(uploaded_file)
+        if 'uploaded_filename' not in st.session_state or \
+           st.session_state['uploaded_filename'] != uploaded_file.name:
+            
+            load_file_to_dataframe(uploaded_file)
+            st.session_state['uploaded_filename'] = uploaded_file.name
+            st.rerun()
 
 with st.expander("Podgląd danych"):
     st.dataframe(st.session_state.df.head())

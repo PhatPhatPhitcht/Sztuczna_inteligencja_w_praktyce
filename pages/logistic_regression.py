@@ -250,11 +250,17 @@ st.divider()
 
 with st.expander("Wczytaj inne dane"):
     uploaded_file = st.file_uploader(
-    "Wybierz plik (CSV, JSON lub XML)", 
-    type=['csv', 'json', 'xml']
-)
+        "Wybierz plik (CSV, JSON lub XML)", 
+        type=['csv', 'json', 'xml']
+    )
+    
     if uploaded_file is not None:
-        load_file_to_dataframe(uploaded_file)
+        if 'uploaded_filename' not in st.session_state or \
+           st.session_state['uploaded_filename'] != uploaded_file.name:
+            
+            load_file_to_dataframe(uploaded_file)
+            st.session_state['uploaded_filename'] = uploaded_file.name
+            st.rerun()
 
 with st.expander("Podgląd danych"):
     st.dataframe(st.session_state.df.head())
@@ -264,7 +270,7 @@ numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
 all_cols = df.columns.tolist()
 
 with st.expander("Wybór cech i zmiennej docelowej", expanded=True):
-    target_col = st.selectbox("Wybierz kolumnę docelową (etykiety)", all_cols, key="lr_target")
+    target_col = st.selectbox("Wybierz kolumnę docelową (etykiety)", all_cols)
     
     if target_col:
         available_features = [col for col in numeric_cols if col != target_col]
@@ -276,8 +282,7 @@ with st.expander("Wybór cech i zmiennej docelowej", expanded=True):
         selected_features = st.multiselect(
             "Wybierz cechy do klasyfikacji (min. 2)",
             available_features,
-            default=available_features[:min(3, len(available_features))],
-            key="lr_features"
+            default=available_features[:min(3, len(available_features))]
         )
         
         if len(selected_features) < 2:
@@ -290,7 +295,7 @@ with st.expander("Wybór cech i zmiennej docelowej", expanded=True):
             st.info(f"Wybrano {len(selected_features)} cech. Zostanie automatycznie zastosowana redukcja wymiarowości (PCA) do 2 wymiarów dla wizualizacji.")
         else:
             st.success(f"Wybrano {len(selected_features)} cechy. Wizualizacja będzie bezpośrednia bez redukcji wymiarowości.")
-
+            
 if target_col and len(selected_features) >= 2:
     try:
         unique_classes = df[target_col].nunique()

@@ -104,12 +104,24 @@ with st.expander("Wczytaj inne dane"):
         st.session_state.df = pd.read_csv("house_data.csv")
         df = pd.read_csv("house_data.csv")
 
+#    uploaded_file = st.file_uploader(
+#    "Wybierz plik (CSV, JSON lub XML)", 
+#    type=['csv', 'json', 'xml']
+#)
+#    if uploaded_file is not None:
+#        load_file_to_dataframe(uploaded_file)
     uploaded_file = st.file_uploader(
-    "Wybierz plik (CSV, JSON lub XML)", 
-    type=['csv', 'json', 'xml']
-)
+        "Wybierz plik (CSV, JSON lub XML)", 
+        type=['csv', 'json', 'xml']
+    )
+
     if uploaded_file is not None:
-        load_file_to_dataframe(uploaded_file)
+        if 'uploaded_filename' not in st.session_state or \
+           st.session_state['uploaded_filename'] != uploaded_file.name:
+
+            load_file_to_dataframe(uploaded_file)
+            st.session_state['uploaded_filename'] = uploaded_file.name
+            st.rerun()
 
 with st.expander("Podgląd danych"):
     st.dataframe(df.head())
@@ -129,7 +141,7 @@ with st.expander("Wybór zmiennych", expanded=False):
     **Wybierz zmienne , które będą użyte do predykcji.**
     
     - Jeśli wybierzesz **więcej niż 2 zmienne niezależne**, zastosowana zostanie **PCA (Principal Component Analysis)** do redukcji wymiarowości dla wizualizacji.
-    - Zmienne tekstowe (kategoryczne) zostaną automatycznie zakodowane numerycznie.
+    - Zmienne tekstowe (kategoryczne) nie są obsługiwane.
     """)
 
     target = st.selectbox(
@@ -140,7 +152,12 @@ with st.expander("Wybór zmiennych", expanded=False):
     )
     
     # Wszystkie kolumny oprócz target
-    available_features = [c for c in df.columns if c != target]
+    available_features = (
+    df.select_dtypes(include="number")
+      .columns
+      .drop(target, errors="ignore")
+      .tolist()
+)
     
     selected_features = st.multiselect(
         "Wybierz zmienne niezależne (X)",

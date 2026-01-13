@@ -79,11 +79,17 @@ st.divider()
 
 with st.expander("Wczytaj inne dane"):
     uploaded_file = st.file_uploader(
-    "Wybierz plik (CSV, JSON lub XML)", 
-    type=['csv', 'json', 'xml']
-)
+        "Wybierz plik (CSV, JSON lub XML)", 
+        type=['csv', 'json', 'xml']
+    )
+    
     if uploaded_file is not None:
-        load_file_to_dataframe(uploaded_file)
+        if 'uploaded_filename' not in st.session_state or \
+           st.session_state['uploaded_filename'] != uploaded_file.name:
+            
+            load_file_to_dataframe(uploaded_file)
+            st.session_state['uploaded_filename'] = uploaded_file.name
+            st.rerun()
 
 with st.expander("Podgląd danych"):
     st.dataframe(st.session_state.df.head())

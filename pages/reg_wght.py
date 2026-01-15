@@ -31,8 +31,6 @@ obserwacjom w danych. Niektóre punkty mogą być bardziej wiarygodne (np. precy
 (np. zawierające większy szum), a regresja ważona to uwzględnia. Wagi mogą być nadane manualnie, lub metodą IRLS. 
 W tym przypadku skupimy się na tym drugim.
 
-**Jak to działa?**
-
 Model stara się lepiej dopasować linię regresji do bardziej wiarygodnych punktów. Punkty z małą wagą mają mniejszy 
 wpływ na wynik i model może je w pewnym stopniu ignorować.
 
@@ -41,8 +39,6 @@ wpływ na wynik i model może je w pewnym stopniu ignorować.
 - Na podstawie tych błędów szacuje, które obszary danych są bardziej/mniej stabilne
 - Przydziela większe wagi punktom w stabilnych obszarach, mniejsze w niestabilnych
 - Powtarza proces, aż wagi przestają się zmieniać (zbieżność)
-
-**Parametry:**
 
 **Siła ważenia** kontroluje jak mocno algorytm stosuje wagi:
 - 0% = ignoruje wagi całkowicie (zwykła regresja liniowa)
@@ -58,17 +54,9 @@ Więcej iteracji nie zawsze oznacza lepszy model - jeśli algorytm zbiegł się 
 
 **Metryki jakości modelu:**
 
-- **R² (Coefficient of Determination)** - Współczynnik determinacji
-  
-  $$R^2 = 1 - \\frac{\\sum_{i=1}^{n}(y_i - \\hat{y}_i)^2}{\\sum_{i=1}^{n}(y_i - \\bar{y})^2}$$
-  
-  Pokazuje, jaki procent zmienności zmiennej zależnej jest wyjaśniony przez model.
+- **R² (Coefficient of Determination)** - Współczynnik determinacji, Pokazuje, jaki procent zmienności zmiennej zależnej jest wyjaśniony przez model.
 
-- **MSE (Mean Squared Error)** - Średni błąd kwadratowy
-  
-  $$MSE = \\frac{1}{n}\\sum_{i=1}^{n}(y_i - \\hat{y}_i)^2$$
-  
-  Średnia kwadratów różnic między wartościami rzeczywistymi a przewidywanymi.
+- **MSE (Mean Squared Error)** - Średni błąd kwadratowy. Średnia kwadratów różnic między wartościami rzeczywistymi a przewidywanymi.
 
 [Regresja liniowa](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html)
             
@@ -244,6 +232,7 @@ try:
         st.info(f"Zastosowano PCA: {len(selected_features)} zmiennych → 1 komponent główny (wyjaśnia {pca.explained_variance_ratio_[0]:.1%} wariancji)")
     else:
         X_for_model = X_array
+        X_scaled = X_array
         scaler = None
         pca = None
     
@@ -265,17 +254,8 @@ st.markdown("""
 **Heteroskedastyczność** oznacza, że błędy przewidywań modelu (reszty) mają różną wariancję w różnych obszarach danych. 
 Model popełnia większe błędy w niektórych regionach, a mniejsze w innych.
 
-**Dlaczego to problem?**
-
-Zwykła regresja liniowa zakłada, że błędy mają stałą wariancję (homoskedastyczność). Gdy to założenie jest naruszone:
-- Przedziały ufności są niepoprawne
-- Testy statystyczne dają błędne wyniki
-- Model jest mniej efektywny
-
 **Test Breuscha-Pagana** służy do statystycznej weryfikacji występowania heteroskedastyczności. Polega on na sprawdzeniu, 
 czy wariancja składnika losowego (reszt z modelu regresji liniowej) zależy od wartości zmiennych objaśniających (X).
-
-**Interpretacja wyników:**
 
 **Statystyka BP** to liczba, która mierzy siłę zależności między wartościami X a wielkością błędów. 
 Im wyższa wartość, tym silniejsza heteroskedastyczność.
@@ -332,22 +312,6 @@ st.divider()
 st.markdown("### Wykres Reszt")
 st.markdown("""
 **Wykres reszt** (residual plot) pokazuje błędy modelu w funkcji wartości przewidywanych.
-
-Reszta to różnica między rzeczywistą wartością a przewidywaną: **reszta = y_rzeczywiste - y_przewidywane**
-- Dodatnia reszta = model przewidział za mało
-- Ujemna reszta = model przewidział za dużo
-- Reszta bliska zero = model trafił
-
-**Jak czytać wykres?**
-
-- **Oś X (wartości przewidywane):** Pokazuje co model przewidział dla danego punktu
-- **Oś Y (reszty):** Pokazuje o ile model się pomylił
-- **Linia y=0:** Idealna sytuacja - brak błędu
-
-**W kontekście regresji ważonej:**
-
-Przed zastosowaniem wag często widać "lejek" - reszty rosną w jednym kierunku, co świadczy o heteroskedastyczności danych.
-Jeśli reszty są losowo rozrzucone wokół zera bez wzoru → dane homoskedastyczne.
 """)
 
 fig_residuals = go.Figure()
@@ -480,54 +444,95 @@ if train_button:
                 old_weights = weights.copy() if iteration > 0 else None
                 
                 abs_residuals = np.abs(current_residuals)
-                abs_residuals = np.maximum(abs_residuals, 0.01)
+                # POPRAWKA: Używamy wygładzonej wersji reszt do obliczania wag
+                # aby uniknąć nadmiernego reagowania na pojedyncze outliers
+                abs_residuals_smoothed = np.maximum(abs_residuals, np.percentile(abs_residuals, 10))
+                abs_residuals = np.maximum(abs_residuals_smoothed, 0.01)
                 
-                y_pred_for_variance = current_model.predict(X_for_model)
+                # POPRAWKA: Używamy oryginalnych skalowanych danych do modelowania wariancji
+                # zamiast PCA, żeby uniknąć nadmiernego uproszczenia
+                # ALE dla wielu cech, używamy wartości przewidywanych zamiast wszystkich X
+                if use_pca and len(selected_features) > 2:
+                    # Dla wielu cech, używamy wartości przewidywanych do modelowania wariancji
+                    # To stabilniejsze niż próba modelowania na wielu wymiarach
+                    y_pred_for_variance = current_model.predict(X_for_model)
+                    X_for_variance = y_pred_for_variance.reshape(-1, 1)
+                elif use_pca:
+                    # Dla 2 cech, możemy użyć oryginalnych skalowanych danych
+                    X_for_variance = X_scaled
+                else:
+                    # Bez PCA, używamy oryginalnych danych
+                    X_for_variance = X_for_model
                 
-                # Modelowanie wariancji
+                # Modelowanie wariancji - używamy prostszych modeli dla stabilności
                 if "Liniowy" in variance_model_type:
-                    X_var = y_pred_for_variance.reshape(-1, 1)
+                    # Dla modelu liniowego - używamy tylko 1 wymiar
+                    if X_for_variance.shape[1] > 1:
+                        X_var = np.mean(X_for_variance, axis=1).reshape(-1, 1)
+                    else:
+                        X_var = X_for_variance
                     variance_model = LinearRegression()
                     variance_model.fit(X_var, abs_residuals)
-                    predicted_std = variance_model.predict(X_var)#błąd
+                    predicted_std = variance_model.predict(X_var).flatten()
                     
                 elif "Kwadratowy" in variance_model_type:
-                    X_var = np.column_stack([
-                        y_pred_for_variance,
-                        y_pred_for_variance ** 2
-                    ])
+                    # Dla modelu kwadratowego - używamy średnią z cech
+                    if X_for_variance.shape[1] > 1:
+                        X_mean = np.mean(X_for_variance, axis=1).reshape(-1, 1)
+                    else:
+                        X_mean = X_for_variance
+                    X_var_quad = np.column_stack([X_mean, X_mean ** 2])
                     variance_model = LinearRegression()
-                    variance_model.fit(X_var, abs_residuals)
-                    predicted_std = variance_model.predict(X_var)
+                    variance_model.fit(X_var_quad, abs_residuals)
+                    predicted_std = variance_model.predict(X_var_quad).flatten()
                     
                 elif "Potęgowy" in variance_model_type:
-                    log_ypred = np.log(np.maximum(y_pred_for_variance, 0.01))
+                    # Dla modelu potęgowego bierzemy średnią z cech
+                    if X_for_variance.shape[1] > 1:
+                        X_mean = np.mean(X_for_variance, axis=1).reshape(-1, 1)
+                    else:
+                        X_mean = X_for_variance
+                    log_xmean = np.log(np.maximum(np.abs(X_mean), 0.01))
                     log_std = np.log(np.maximum(abs_residuals, 0.01))
                     
                     variance_model = LinearRegression()
-                    variance_model.fit(log_ypred.reshape(-1, 1), log_std)
-                    
-                    predicted_std = np.exp(variance_model.predict(log_ypred.reshape(-1, 1)))
+                    variance_model.fit(log_xmean, log_std)
+                    predicted_std = np.exp(variance_model.predict(log_xmean)).flatten()
                     
                 else:  # Logarytmiczny
-                    X_var = np.log(np.maximum(y_pred_for_variance, 0.01)).reshape(-1, 1)
+                    if X_for_variance.shape[1] > 1:
+                        X_mean = np.mean(X_for_variance, axis=1).reshape(-1, 1)
+                    else:
+                        X_mean = X_for_variance
+                    X_var_log = np.log(np.maximum(np.abs(X_mean), 0.01))
                     variance_model = LinearRegression()
-                    variance_model.fit(X_var, abs_residuals)
-                    predicted_std = variance_model.predict(X_var)
+                    variance_model.fit(X_var_log, abs_residuals)
+                    predicted_std = variance_model.predict(X_var_log).flatten()
                 
                 predicted_std = np.maximum(predicted_std, 0.01)
                 
-                # Obliczanie wag
+                # Obliczanie wag z zabezpieczeniem przed ekstremalnymi wartościami
                 weights_full = 1 / (predicted_std ** 2)
-                weights_uniform = np.ones_like(weights_full)#tablica jedynek o wielkości weights_full
+                
+                # POPRAWKA: Łagodniejsza normalizacja wag dla lepszej stabilności
+                # Używamy percentyli zamiast minimum/maksimum
+                p25, p75 = np.percentile(weights_full, [25, 75])
+                weights_full = np.clip(weights_full, p25 * 0.5, p75 * 2.0)
+                
+                weights_full = weights_full / np.median(weights_full)
+                
+                weights_uniform = np.ones_like(weights_full)
                 weights = weight_multiplier * weights_full + (1 - weight_multiplier) * weights_uniform
                 weights = weights / np.mean(weights)
+                
+                # Finalna kontrola - zapobiegamy ekstremalnym wagom
+                weights = np.clip(weights, 0.3, 3.0)
                 
                 if old_weights is not None:
                     weight_change = np.mean(np.abs(weights - old_weights))
                     weight_changes.append(weight_change)
                 
-                # Trenowanie modelu ważonego
+                # Trenowanie modelu ważonego - używamy PCA dla modelu, ale oryginalne dane dla wag
                 weighted_model = LinearRegression()
                 weighted_model.fit(X_for_model, y_array, sample_weight=weights)
                 y_pred_weighted = weighted_model.predict(X_for_model)
@@ -538,10 +543,20 @@ if train_button:
                 variance_stability.append(variance_of_scaled)
                 
                 # Metryki
+                # R² ważone - pokazuje jak dobrze model pasuje do ważonych danych
                 r2_weighted = weighted_model.score(X_for_model, y_array, sample_weight=weights)
-                mse_weighted = np.average(residuals_weighted ** 2, weights=weights)
                 
-                mse_history.append(mse_weighted)
+                # MSE nieważone - dla porównania z modelem baseline
+                mse_unweighted = np.mean(residuals_weighted ** 2)
+                
+                # MSE ważone - pokazuje błąd w kontekście wag
+                mse_weighted_metric = np.average(residuals_weighted ** 2, weights=weights)
+                
+                # RMSE dla punktów o wysokich wagach (ważniejszych)
+                high_weight_mask = weights > np.median(weights)
+                mse_high_weight = np.mean(residuals_weighted[high_weight_mask] ** 2) if high_weight_mask.any() else mse_unweighted
+                
+                mse_history.append(mse_unweighted)
                 r2_history.append(r2_weighted)
                 
                 iterations_results.append({
@@ -552,8 +567,17 @@ if train_button:
                     'residuals': residuals_weighted,
                     'scaled_residuals': scaled_residuals,
                     'r2': r2_weighted,
-                    'mse': mse_weighted,
-                    'variance_stability': variance_of_scaled
+                    'mse': mse_unweighted,
+                    'mse_weighted': mse_weighted_metric,
+                    'mse_high_weight': mse_high_weight,
+                    'variance_stability': variance_of_scaled,
+                    'weight_stats': {
+                        'min': np.min(weights),
+                        'max': np.max(weights),
+                        'mean': np.mean(weights),
+                        'median': np.median(weights),
+                        'std': np.std(weights)
+                    }
                 })
                 
                 current_model = weighted_model
@@ -566,6 +590,7 @@ if train_button:
         st.session_state.wr_r2_initial = r2_initial
         st.session_state.wr_bp_pvalue = bp_pvalue
         st.session_state.wr_X_for_model = X_for_model
+        st.session_state.wr_X_scaled = X_scaled
         st.session_state.wr_y_array = y_array
         st.session_state.wr_features = selected_features
         st.session_state.wr_target = y_col
@@ -584,6 +609,8 @@ if train_button:
         
     except Exception as e:
         st.error(f"Wystąpił błąd podczas trenowania modelu: {str(e)}")
+        import traceback
+        st.code(traceback.format_exc())
         st.session_state.wr_is_trained = False
 
 if st.session_state.wr_is_trained:
@@ -625,11 +652,22 @@ if st.session_state.wr_is_trained:
     
     for idx, result in enumerate(iterations_results):
         with st.expander(f"Iteracja {result['iteration']}", expanded=(idx == len(iterations_results) - 1)):
-            col1, col2 = st.columns(2)
+            col1, col2, col3 = st.columns(3)
             with col1:
-                st.metric("R² (Coefficient of Determination)", f"{result['r2']:.4f}")
+                st.metric("R² (ważone)", f"{result['r2']:.4f}")
             with col2:
-                st.metric("MSE (Mean Squared Error)", f"{result['mse']:.4f}")
+                st.metric("MSE (ogólne)", f"{result['mse']:.2f}")
+            with col3:
+                st.metric("MSE (ważone)", f"{result['mse_weighted']:.2f}")
+            
+            col4, col5, col6 = st.columns(3)
+            with col4:
+                st.metric("MSE (ważne punkty)", f"{result['mse_high_weight']:.2f}")
+            with col5:
+                st.metric("Mediana wag", f"{result['weight_stats']['median']:.2f}")
+            with col6:
+                weight_range = result['weight_stats']['max'] - result['weight_stats']['min']
+                st.metric("Zakres wag", f"{weight_range:.2f}")
             
             # Wykres regresji
             fig_weighted = go.Figure()
@@ -704,60 +742,111 @@ if st.session_state.wr_is_trained:
     comparison_df = pd.DataFrame({
         'Iteracja': ['Początkowa (zwykła regresja)'] + [f"IRLS {r['iteration']}" for r in iterations_results],
         'R²': [st.session_state.wr_r2_initial] + [r['r2'] for r in iterations_results],
-        'MSE': [st.session_state.wr_mse_initial] + [r['mse'] for r in iterations_results],
+        'MSE ogólne': [st.session_state.wr_mse_initial] + [r['mse'] for r in iterations_results],
+        'MSE ważone': [st.session_state.wr_mse_initial] + [r['mse_weighted'] for r in iterations_results],
+        'MSE ważne punkty': [st.session_state.wr_mse_initial] + [r['mse_high_weight'] for r in iterations_results],
         'Zmiana wag': weight_changes_padded
     })
     
     st.dataframe(comparison_df, use_container_width=True)
     
-    # Wykres porównawczy - MSE
+    st.markdown("""
+    **Wyjaśnienie metryk:**
+    - **MSE ogólne**: Zwykły błąd średniokwadratowy - porównanie z baseline
+    - **MSE ważone**: Błąd z uwzględnieniem wag - to jest optymalizowane przez IRLS
+    - **MSE ważne punkty**: Błąd tylko dla punktów o wysokich wagach (najbardziej wiarygodnych)
+    """)
+    
+    # Wykres porównawczy - wszystkie metryki MSE
     fig_comparison = go.Figure()
+    
     fig_comparison.add_trace(go.Scatter(
         x=list(range(len(comparison_df))),
-        y=comparison_df['MSE'],
+        y=comparison_df['MSE ogólne'],
         mode='lines+markers',
-        name='MSE',
-        line=dict(width=3, color='red'),
+        name='MSE ogólne',
+        line=dict(width=3, color='blue'),
         marker=dict(size=10)
     ))
+    
+    fig_comparison.add_trace(go.Scatter(
+        x=list(range(len(comparison_df))),
+        y=comparison_df['MSE ważone'],
+        mode='lines+markers',
+        name='MSE ważone (cel IRLS)',
+        line=dict(width=3, color='green'),
+        marker=dict(size=10)
+    ))
+    
+    fig_comparison.add_trace(go.Scatter(
+        x=list(range(len(comparison_df))),
+        y=comparison_df['MSE ważne punkty'],
+        mode='lines+markers',
+        name='MSE ważne punkty',
+        line=dict(width=3, color='orange'),
+        marker=dict(size=10, symbol='diamond')
+    ))
+    
     fig_comparison.update_layout(
-        title="Poprawa modelu: czy IRLS zmniejsza błąd?",
+        title="Porównanie różnych miar błędu",
         xaxis_title="Iteracja",
-        yaxis_title="MSE (Mean Squared Error)",
+        yaxis_title="MSE",
         xaxis=dict(
             ticktext=comparison_df['Iteracja'], 
             tickvals=list(range(len(comparison_df)))
         ),
-        height=400
+        height=400,
+        hovermode='x unified'
     )
     st.plotly_chart(fig_comparison, use_container_width=True)
     
     st.divider()
     
     # Interpretacja wyników
-    initial_mse = comparison_df['MSE'].iloc[0]
-    final_mse = comparison_df['MSE'].iloc[-1]
-    improvement = (initial_mse - final_mse) / initial_mse * 100
+    initial_mse = comparison_df['MSE ogólne'].iloc[0]
+    final_mse = comparison_df['MSE ogólne'].iloc[-1]
+    improvement_general = (initial_mse - final_mse) / initial_mse * 100
+    
+    initial_mse_weighted = comparison_df['MSE ważone'].iloc[0]
+    final_mse_weighted = comparison_df['MSE ważone'].iloc[-1]
+    improvement_weighted = (initial_mse_weighted - final_mse_weighted) / initial_mse_weighted * 100
+    
+    initial_mse_high = comparison_df['MSE ważne punkty'].iloc[0]
+    final_mse_high = comparison_df['MSE ważne punkty'].iloc[-1]
+    improvement_high = (initial_mse_high - final_mse_high) / initial_mse_high * 100
     
     st.markdown("### Podsumowanie")
     
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
+    
     with col1:
-        if improvement > 5:
-            st.success(f"**IRLS działa!**\n\nMSE poprawiło się o **{improvement:.1f}%**")
-        elif improvement > 0:
-            st.info(f"**Niewielka poprawa**\n\nMSE poprawiło się o **{improvement:.1f}%**")
+        st.markdown("**MSE Ważone**")
+        if improvement_weighted > 5:
+            st.success(f"Poprawa o **{improvement_weighted:.1f}%**\n\nIRLS skutecznie zoptymalizował błąd ważony")
+        elif improvement_weighted > 0:
+            st.info(f"Poprawa o **{improvement_weighted:.1f}%**")
         else:
-            st.warning(f"**IRLS nie pomogło**\n\nMSE pogorszyło się o **{-improvement:.1f}%**\n\n**Możliwe przyczyny:**\n- Model wariancji za prosty/złożony\n- Dane homoskedastyczne (p={st.session_state.wr_bp_pvalue:.3f})\n- Heteroskedastyczność nie jest liniowa względem X")
+            st.warning(f"Pogorszenie o **{-improvement_weighted:.1f}%**")
     
     with col2:
-        if len(st.session_state.wr_weight_changes) > 0:
-            final_change = st.session_state.wr_weight_changes[-1]
-            
-            if final_change < 0.01:
-                st.success(f"**Zbieżność osiągnięta**\n\nWagi stabilne (zmiana: {final_change:.4f})")
-            else:
-                st.warning(f"**Brak pełnej zbieżności**\n\nWagi nadal się zmieniają (zmiana: {final_change:.4f})\n\nRozważ zwiększenie liczby iteracji.")
+        st.markdown("**MSE Ważne Punkty**")
+        if improvement_high > 5:
+            st.success(f"Poprawa o **{improvement_high:.1f}%**\n\nModel lepiej przewiduje dla wiarygodnych danych")
+        elif improvement_high > 0:
+            st.info(f"Poprawa o **{improvement_high:.1f}%**")
+        else:
+            st.warning(f"Pogorszenie o **{-improvement_high:.1f}%**")
+    
+    with col3:
+        st.markdown("**MSE Ogólne**")
+        if improvement_general > 5:
+            st.success(f"Poprawa o **{improvement_general:.1f}%**")
+        elif improvement_general > 0:
+            st.info(f"Poprawa o **{improvement_general:.1f}%**")
+        elif improvement_general > -10:
+            st.info(f"Zmiana o **{improvement_general:.1f}%**\n\n Nieważone MSE może się pogorszyć")
+        else:
+            st.warning(f"Pogorszenie o **{-improvement_general:.1f}%**\n\n**Możliwe przyczyny:**\n- Dane homoskedastyczne (p={st.session_state.wr_bp_pvalue:.3f})\n- Model wariancji nieodpowiedni\n- Za mało iteracji")
     
     st.divider()
     
@@ -810,11 +899,10 @@ if st.session_state.wr_is_trained:
             
             X_input = input_df.values
             
-            # Zastosuj tę samą transformację co podczas trenowania
             if st.session_state.wr_use_pca:
                 X_input_scaled = st.session_state.wr_scaler.transform(X_input)
-                X_input_pca = st.session_state.wr_pca.transform(X_input_scaled)
-                prediction = final_model.predict(X_input_pca)[0]
+                X_input_transformed = st.session_state.wr_pca.transform(X_input_scaled)
+                prediction = final_model.predict(X_input_transformed)[0]
             else:
                 prediction = final_model.predict(X_input)[0]
             
@@ -822,9 +910,17 @@ if st.session_state.wr_is_trained:
             
             # Porównanie z modelem baseline
             if st.session_state.wr_use_pca:
-                prediction_baseline = st.session_state.wr_model_initial.predict(X_input_pca)[0]
+                prediction_baseline = st.session_state.wr_model_initial.predict(X_input_transformed)[0]
             else:
                 prediction_baseline = st.session_state.wr_model_initial.predict(X_input)[0]
             
+            st.info(f"Przewidywanie modelu bazowego (bez ważenia): **{prediction_baseline:.4f}**")
+            
+            diff = abs(prediction - prediction_baseline)
+            if diff > 0.01:
+                st.write(f"Różnica między modelami: **{diff:.4f}**")
+            
         except Exception as e:
             st.error(f"Błąd podczas predykcji: {str(e)}")
+            import traceback
+            st.code(traceback.format_exc())

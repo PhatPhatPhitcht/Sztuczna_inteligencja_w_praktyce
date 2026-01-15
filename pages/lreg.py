@@ -104,12 +104,6 @@ with st.expander("Wczytaj inne dane"):
         st.session_state.df = pd.read_csv("house_data.csv")
         df = pd.read_csv("house_data.csv")
 
-#    uploaded_file = st.file_uploader(
-#    "Wybierz plik (CSV, JSON lub XML)", 
-#    type=['csv', 'json', 'xml']
-#)
-#    if uploaded_file is not None:
-#        load_file_to_dataframe(uploaded_file)
     uploaded_file = st.file_uploader(
         "Wybierz plik (CSV, JSON lub XML)", 
         type=['csv', 'json', 'xml']

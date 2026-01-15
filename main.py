@@ -67,7 +67,7 @@ with st.expander("Wczytaj własne dane"):
     if uploaded_file is not None:
         load_file_to_dataframe(uploaded_file)
 
-with st.expander("Dowiedz się więcej o zbiorze Iris"):
+with st.expander("Wybierz i dowiedz się więcej o zbiorze Iris"):
      #-------------------EDA---------------------------
      #df = st.session_state.df
     
@@ -120,7 +120,7 @@ with st.expander("Dowiedz się więcej o zbiorze Iris"):
     ax.set_ylabel("Szerokość kielicha")
     st.pyplot(fig)
 
-with st.expander("Dowiedz się więcej o zbiorze House Sales"):
+with st.expander("Wybierz i dowiedz się więcej o zbiorze House Sales"):
     if st.button("Wybierz *House Sales* jako podstawowy zbiór"):
         st.session_state.df = df_house
 

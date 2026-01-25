@@ -366,7 +366,7 @@ Projekt edukacyjny - brak określonej licencji.
 
 ## Autor
 
-**PhatPhatPhitcht**
+**Jakub Najder**
 
 GitHub: [https://github.com/PhatPhatPhitcht](https://github.com/PhatPhatPhitcht)
 

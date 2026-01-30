@@ -303,6 +303,9 @@ if target_col and len(selected_features) >= 2:
         if unique_classes < 2:
             st.error("Kolumna docelowa musi mieć co najmniej 2 klasy!")
             st.stop()
+        elif unique_classes > 20:
+            st.error(f"Kolumna ma {len(available_features)} klas. To zbyt wiele dla klasyfikacji. Wybierz kolumnę z mniejszą liczbą klas (maksymalnie 20).")
+            st.stop()            
         elif unique_classes > 10:
             st.warning(f"Kolumna ma {unique_classes} klas. Dla lepszej wizualizacji zaleca się mniej klas.")
         
@@ -577,12 +580,6 @@ if target_col and len(selected_features) >= 2:
             plt.tight_layout()
             st.pyplot(fig)
             plt.close(fig)
-            
-            # Raport klasyfikacji
-            st.markdown("### Raport klasyfikacji")
-            report = classification_report(y_test_display, y_pred_display, output_dict=True)
-            report_df = pd.DataFrame(report).transpose()
-            st.dataframe(report_df.style.format("{:.3f}"), use_container_width=True)
             
             # Ewolucja granicy decyzyjnej
             st.subheader(f"Ewolucja granicy decyzyjnej ({len(st.session_state['lr_history'])-1} kroków)")

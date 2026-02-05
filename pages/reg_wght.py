@@ -692,7 +692,11 @@ if st.session_state.wr_is_trained:
                     color=weights_sorted,
                     colorscale='Viridis',
                     showscale=True,
-                    colorbar=dict(title="Waga")
+                    colorbar=dict(
+                        title="Waga",
+                        y=0.8,
+                        yanchor='top'
+                        )
                 ),
                 hovertemplate='<b>X:</b> %{x:.2f}<br><b>Y:</b> %{y:.2f}<br><b>Waga:</b> %{marker.color:.2f}<extra></extra>'
             ))

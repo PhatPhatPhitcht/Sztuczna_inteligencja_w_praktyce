@@ -68,9 +68,9 @@ with st.expander("Wczytaj własne dane"):
         load_file_to_dataframe(uploaded_file)
 
 with st.expander("Wybierz i dowiedz się więcej o zbiorze Iris"):
+
      #-------------------EDA---------------------------
-     #df = st.session_state.df
-    
+
     if st.button("Wybierz Iris jako podstawowy zbiór"):
         st.session_state.df = df_iris
     st.caption("Iris jest domyślnym zbiorem w przypadku braku innych danych")
@@ -104,8 +104,12 @@ with st.expander("Wybierz i dowiedz się więcej o zbiorze Iris"):
 
     st.header("Rozłożenie danych:")
     st.header("Boxplot")
-    labels = ["Długość kielicha", "Szerokość kielicha", "Długość płatka", "Szerokość płatka"]
-
+    labels = [
+    "Długość kielicha\n(sepal length)", 
+    "Szerokość kielicha\n(sepal width)", 
+    "Długość płatka\n(petal length)", 
+    "Szerokość płatka\n(petal width)"
+]
     fig, ax = plt.subplots()
     sns.boxplot(data=df_iris, orient="h", ax=ax)
     ax.set_yticks(range(len(labels)))

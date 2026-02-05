@@ -219,7 +219,7 @@ if len(selected_features) > 0:
         except Exception as e:
             st.error(f"Nie udało się wygenerować macierzy korelacji: {str(e)}")
 
-st.markdown("**Parametry hiperparametrów drzewa**")
+st.markdown("**Parametry modelu**")
 
 col1, col2, col3 = st.columns(3)
 
@@ -359,7 +359,7 @@ def create_interactive_tree(model, feature_names):
     fig.add_trace(go.Scatter(
         x=node_x,
         y=node_y,
-        mode='markers',
+        mode='markers+text',  # Dodaj '+text'
         marker=dict(
             size=30,
             color=node_colors,
@@ -372,7 +372,10 @@ def create_interactive_tree(model, feature_names):
             ),
             line=dict(color='white', width=2)
         ),
-        text=hover_texts,
+        text=[f"N{n['id']}" for n in nodes],  # Dodaj etykiety węzłów
+        textposition="middle center",  # Wyśrodkuj tekst
+        textfont=dict(color='white', size=10, family='Arial Black'),  # Styl tekstu
+        hovertext=hover_texts,  # Zmień z 'text' na 'hovertext'
         hoverinfo='text',
         hoverlabel=dict(
             bgcolor="white",
